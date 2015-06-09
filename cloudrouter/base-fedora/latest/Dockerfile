@@ -18,4 +18,6 @@ RUN mkdir -p ${SOURCES} \
 
 VOLUME [${SOURCES}, ${TARGET}, ${WORKSPACE}, ${RPM_BUILD_DIR}]
 
+ADD ./assets/build /usr/bin/build
+
 CMD ["build"]
