@@ -64,8 +64,9 @@ function map-all() {
 function build() {
     DISTRO=${1}
     VERSION=${2}
-    $(cd ${DISTRO}/${VERSION} \
-        && docker build -t rpmbuilder/${DISTRO}:${VERSION})
+    cd ${DISTRO}/${VERSION} \
+        && docker build -t rpmbuilder/${DISTRO/\//_}:${VERSION} .
+    cd -
 }
 
 case "$1" in
