@@ -27,8 +27,8 @@ find ${WORKSPACE} -maxdepth 1 -type f -name "*.spec" \
 
 # extract RPMs
 find ${RPM_BUILD_RPMS} -name "${COMPONENT}*.rpm" \
-    -exec mv {} ${TARGET} \;
+    -exec mv {} ${OUTPUT} \;
 
 # extract SRPMs
 find ${RPM_BUILD_SRPMS} -name "${COMPONENT}*.rpm" \
-    -exec mv {} ${TARGET} \;
+    -exec mv {} ${OUTPUT} \;

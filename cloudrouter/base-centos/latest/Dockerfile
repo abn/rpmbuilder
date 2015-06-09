@@ -7,11 +7,10 @@ ENV OUTPUT /sources
 
 RUN yum -y upgrade
 RUN yum -y install rpm-build rpmdevtools yum-utils
-
+ENV RPM_BUILD_DIR /rpmbuild
 RUN yum -y install epel-release
 
-RUN rm -rf /root/rpmbuild
-RUN ln -sf /root/rpmbuild ${RPM_BUILD_DIR}
+RUN ln -sf ${RPM_BUILD_DIR} /root/rpmbuild
 
 RUN mkdir -p ${SOURCES} \
     ${WORKSPACE} \

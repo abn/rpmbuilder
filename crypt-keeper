@@ -4,6 +4,7 @@ function generate() {
     SOURCES=${SOURCES-/sources}
     OUTPUT=${OUTPUT-${SOURCES}}
     WORKSPACE=${WORKSPACE-/workspace}
+    RPM_BUILD_DIR=${RPM_BUILD_DIR-/rpmbuild}
 
     DISTRO=${1-fedora}
     RELEASE=${2-latest}
@@ -28,7 +29,7 @@ ENV OUTPUT ${OUTPUT}
 
 RUN yum -y upgrade
 RUN yum -y install rpm-build rpmdevtools yum-utils
-
+ENV RPM_BUILD_DIR ${RPM_BUILD_DIR}
 EOF
 
     case "${DISTRO}" in
@@ -41,8 +42,7 @@ EOF
     esac
 
     cat >> ${DOCKERFILE} << EOF
-RUN rm -rf /root/rpmbuild
-RUN ln -sf /root/rpmbuild \${RPM_BUILD_DIR}
+RUN ln -sf \${RPM_BUILD_DIR} /root/rpmbuild
 
 RUN mkdir -p \${SOURCES} \\
     \${WORKSPACE} \\
