@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+function generate() {
+    SOURCES=${SOURCES-/sources}
+    OUTPUT=${OUTPUT-${SOURCES}}
+    WORKSPACE=${WORKSPACE-/workspace}
+
+    DISTRO=${1-fedora}
+    RELEASE=${2-latest}
+
+    ROOT=$(pwd)/${DISTRO}/${RELEASE}/
+    ASSETS=${ROOT}/assets
+    DOCKERFILE=${ROOT}/Dockerfile
+    rm -rf ${ROOT} && mkdir -p ${ROOT}
+
+    # prepare files
+    cp -R ./assets ${ROOT}/.
+    # cp LICENCE README.md
+
+    # header
+    cat > ${DOCKERFILE} << EOF
+FROM ${DISTRO}:${RELEASE}
+MAINTAINER "Arun Neelicattu" <arun.neelicattu@gmail.com>
+
+ENV WORKSPACE ${WORKSPACE}
+ENV SOURCES ${SOURCES}
+ENV OUTPUT ${OUTPUT}
+
+RUN yum -y upgrade
+RUN yum -y install rpm-build rpmdevtools yum-utils
+
+EOF
+
+    case "${DISTRO}" in
+        centos|cloudrouter*centos)
+            cat >> ${DOCKERFILE} << EOF
+RUN yum -y install epel-release
+
+EOF
+            ;;
+    esac
+
+    cat >> ${DOCKERFILE} << EOF
+RUN rm -rf /root/rpmbuild
+RUN ln -sf \${RPM_BUILD_DIR} /root/rpmbuild
+
+RUN mkdir -p \${SOURCES} \\
+    \${WORKSPACE} \\
+    \${OUTPUT} \\
+    \${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
+VOLUME [\${SOURCES}, \${TARGET}, \${WORKSPACE}, \${RPM_BUILD_DIR}]
+
+CMD ["build"]
+EOF
+}
+
+function map-all() {
+    while IFS=' ' read -r -a input; do 
+        $1 ${input[0]} ${input[1]}
+    done < ./defaults
+}
+
+function build() {
+    DISTRO=${1}
+    VERSION=${2}
+    $(cd ${DISTRO}/${VERSION} \
+        && docker build -t rpmbuilder/${DISTRO}:${VERSION})
+}
+
+case "$1" in
+    generate|build)
+        if [ "$2" == "all" ]; then
+            map-all $1
+        else
+            $1 $2 $3 
+        fi ;;
+esac
