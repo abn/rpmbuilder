@@ -11,7 +11,7 @@ RUN yum -y install rpm-build rpmdevtools yum-utils
 RUN yum -y install epel-release
 
 RUN rm -rf /root/rpmbuild
-RUN ln -sf ${RPM_BUILD_DIR} /root/rpmbuild
+RUN ln -sf /root/rpmbuild ${RPM_BUILD_DIR}
 
 RUN mkdir -p ${SOURCES} \
     ${WORKSPACE} \
