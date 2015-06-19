@@ -3,7 +3,7 @@ MAINTAINER "Arun Neelicattu" <arun.neelicattu@gmail.com>
 
 ENV WORKSPACE /workspace
 ENV SOURCES /sources
-ENV OUTPUT /sources
+ENV OUTPUT /output
 
 RUN yum -y upgrade
 RUN yum -y install rpm-build rpmdevtools yum-utils
@@ -15,7 +15,7 @@ RUN mkdir -p ${SOURCES} \
     ${OUTPUT} \
     ${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-VOLUME [${SOURCES}, ${TARGET}, ${WORKSPACE}, ${RPM_BUILD_DIR}]
+VOLUME [${SOURCES}, ${OUTPUT}, ${WORKSPACE}, ${RPM_BUILD_DIR}]
 
 ADD ./assets/build /usr/bin/build
 

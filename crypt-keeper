@@ -2,7 +2,7 @@
 
 function generate() {
     SOURCES=${SOURCES-/sources}
-    OUTPUT=${OUTPUT-${SOURCES}}
+    OUTPUT=${OUTPUT-/output}
     WORKSPACE=${WORKSPACE-/workspace}
     RPM_BUILD_DIR=${RPM_BUILD_DIR-/rpmbuild}
 
@@ -49,7 +49,7 @@ RUN mkdir -p \${SOURCES} \\
     \${OUTPUT} \\
     \${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-VOLUME [\${SOURCES}, \${TARGET}, \${WORKSPACE}, \${RPM_BUILD_DIR}]
+VOLUME [\${SOURCES}, \${OUTPUT}, \${WORKSPACE}, \${RPM_BUILD_DIR}]
 
 ADD ./assets/build /usr/bin/build
 
