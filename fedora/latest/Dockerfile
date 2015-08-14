@@ -5,8 +5,10 @@ ENV WORKSPACE /workspace
 ENV SOURCES /sources
 ENV OUTPUT /output
 
-RUN yum -y upgrade
-RUN yum -y install rpm-build rpmdevtools yum-utils
+RUN dnf -y upgrade
+RUN dnf -y install rpm-build rpmdevtools yum-utils
+RUN dnf -y clean all
+
 ENV RPM_BUILD_DIR /rpmbuild
 RUN ln -sf ${RPM_BUILD_DIR} /root/rpmbuild
 
