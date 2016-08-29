@@ -29,7 +29,7 @@ docker run \
 
 The output files will be available in `OUTPUT_DIR`.
 
-# Debugging
+###  Debugging
 If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by using the following command.
 
 ```
