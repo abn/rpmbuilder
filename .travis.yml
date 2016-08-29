@@ -1,22 +1,21 @@
 sudo: required
 
 env:
-  - matrix:
-    - OS_TYPE=fedora OS_VERSION=latest
-    - OS_TYPE=fedora OS_VERSION=24
-    - OS_TYPE=centos OS_VERSION=latest
-    - OS_TYPE=centos OS_VERSION=7
+  - OS_TYPE=fedora OS_VERSION=latest
+  - OS_TYPE=fedora OS_VERSION=24
+  - OS_TYPE=centos OS_VERSION=latest
+  - OS_TYPE=centos OS_VERSION=7
 
 services:
   - docker
 
-install: true
+install:
+  - ./crypt-keeper generate ${OS_TYPE} ${OS_VERSION}
 
 script:
-    - ./crypt-keeper generate ${OS_TYPE} ${OS_VERSION}
-    - ./crypt-keeper build ${OS_TYPE} ${OS_VERSION}
+  - ./crypt-keeper build ${OS_TYPE} ${OS_VERSION}
 
 after_success:
-    - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-    - ./crypt-keeper push ${OS_TYPE} ${OS_VERSION}
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - ./crypt-keeper push ${OS_TYPE} ${OS_VERSION}
 
