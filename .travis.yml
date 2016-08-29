@@ -1,5 +1,7 @@
 sudo: required
 
+language: generic
+
 env:
   - OS_TYPE=fedora OS_VERSION=latest
   - OS_TYPE=fedora OS_VERSION=24
