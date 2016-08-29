@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DOCKER_REGISRY_USER=alectolytic
+
 function generate() {
     SOURCES=${SOURCES-/sources}
     OUTPUT=${OUTPUT-/output}
@@ -8,6 +10,8 @@ function generate() {
 
     DISTRO=${1-fedora}
     RELEASE=${2-latest}
+    YUM="yum"
+    [[ ${DISTRO} =~ .*fedora ]] && YUM="dnf"
 
     ROOT=$(pwd)/${DISTRO}/${RELEASE}/
     ASSETS=${ROOT}/assets
@@ -27,15 +31,14 @@ ENV WORKSPACE ${WORKSPACE}
 ENV SOURCES ${SOURCES}
 ENV OUTPUT ${OUTPUT}
 
-RUN yum -y upgrade
-RUN yum -y install rpm-build rpmdevtools yum-utils
+RUN ${YUM} -y install rpm-build rpmdevtools yum-utils && ${YUM} -y clean all
 ENV RPM_BUILD_DIR ${RPM_BUILD_DIR}
 EOF
 
     case "${DISTRO}" in
         centos|cloudrouter*centos)
             cat >> ${DOCKERFILE} << EOF
-RUN yum -y install epel-release
+RUN ${YUM} -y install epel-release
 
 EOF
             ;;
@@ -63,16 +66,29 @@ function map-all() {
     done < ./defaults
 }
 
+function docker-image-name() {
+    DISTRO=${1}
+    VERSION=${2}
+    echo -n "${DOCKER_REGISRY_USER}/rpmbuilder:${DISTRO/\//-}-${VERSION}"
+   
+}
+
 function build() {
     DISTRO=${1}
     VERSION=${2}
     cd ${DISTRO}/${VERSION} \
-        && docker build -t rpmbuilder/${DISTRO/\//_}:${VERSION} .
+        && docker build -t $(docker-image-name ${DISTRO} ${VERSION}) .
     cd -
 }
 
+function push() {
+    DISTRO=${1}
+    VERSION=${2}
+    docker push $(docker-image-name ${DISTRO} ${VERSION})
+}
+
 case "$1" in
-    generate|build)
+    generate|build|push)
         if [ "$2" == "all" ]; then
             map-all $1
         else
