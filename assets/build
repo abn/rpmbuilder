@@ -22,10 +22,13 @@ chown root:root ${WORKSPACE}/*
 find ${WORKSPACE} -mindepth 1 -maxdepth 1 ! -name "*.spec" \
     -exec cp -R {} ${RPM_BUILD_SOURCES}/. \;
 
+BUILDDEP_CMD=yum-builddep
+command -v dnf > /dev/null 2>&1 && BUILDDEP_CMD="dnf builddep"
+
 # install deps and fetch any external sources
 # then do an RPM BUILD
 find ${WORKSPACE} -maxdepth 1 -type f -name "*.spec" \
-    -exec yum-builddep -y {} \; \
+    -exec ${BUILDDEP_CMD} -y {} \; \
     -exec spectool --sourcedir --get-files {} \; \
     -exec rpmbuild ${RPMBUILD_OPTS} ${RPMBUILD_MODE} --clean {} \;
 
