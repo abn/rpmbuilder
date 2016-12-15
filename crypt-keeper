@@ -52,7 +52,7 @@ RUN mkdir -p \${SOURCES} \\
     \${OUTPUT} \\
     \${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-VOLUME [\${SOURCES}, \${OUTPUT}, \${WORKSPACE}, \${RPM_BUILD_DIR}]
+VOLUME ["\${SOURCES}", "\${OUTPUT}", "\${WORKSPACE}", "\${RPM_BUILD_DIR}"]
 
 ADD ./assets/build /usr/bin/build
 
