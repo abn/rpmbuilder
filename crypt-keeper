@@ -10,8 +10,6 @@ function generate() {
 
     DISTRO=${1-fedora}
     RELEASE=${2-latest}
-    YUM="yum"
-    [[ ${DISTRO} =~ .*fedora ]] && YUM="dnf"
 
     ROOT=$(pwd)/${DISTRO}/${RELEASE}/
     ASSETS=${ROOT}/assets
@@ -21,36 +19,34 @@ function generate() {
     # prepare files
     cp -R ./assets ${ROOT}/.
     # cp LICENCE README.md
-
+    YUM="yum"
+    PACKAGES="rpm-build rpmdevtools yum-utils"
+    case "${DISTRO}" in
+        centos|cloudrouter*centos)
+            EXTRA_PACKAGES="epel-release";
+            ;;
+        fedora)
+            YUM="dnf";
+            EXTRA_PACKAGES="'dnf-command(builddep)'";
+            ;;
+    esac
     # header
     cat > ${DOCKERFILE} << EOF
 FROM ${DISTRO}:${RELEASE}
 MAINTAINER "Arun Neelicattu" <arun.neelicattu@gmail.com>
 
-ENV WORKSPACE ${WORKSPACE}
-ENV SOURCES ${SOURCES}
-ENV OUTPUT ${OUTPUT}
+ENV WORKSPACE=${WORKSPACE} \\
+    SOURCES=${SOURCES} \\
+    OUTPUT=${OUTPUT} \\
+    RPM_BUILD_DIR=${RPM_BUILD_DIR}
 
-RUN ${YUM} -y install rpm-build rpmdevtools yum-utils && ${YUM} -y clean all
-ENV RPM_BUILD_DIR ${RPM_BUILD_DIR}
-EOF
-
-    case "${DISTRO}" in
-        centos|cloudrouter*centos)
-            cat >> ${DOCKERFILE} << EOF
-RUN ${YUM} -y install epel-release
-
-EOF
-            ;;
-    esac
-
-    cat >> ${DOCKERFILE} << EOF
-RUN ln -sf \${RPM_BUILD_DIR} /root/rpmbuild
-
-RUN mkdir -p \${SOURCES} \\
-    \${WORKSPACE} \\
-    \${OUTPUT} \\
-    \${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+RUN ${YUM} -y install ${PACKAGES} ${EXTRA_PACKAGES} \\
+    && ${YUM} -y clean all \\
+    && ln -sf \${RPM_BUILD_DIR} /root/rpmbuild \\
+    && mkdir -p \${SOURCES} \\
+        \${WORKSPACE} \\
+        \${OUTPUT} \\
+        \${RPM_BUILD_DIR}/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 VOLUME ["\${SOURCES}", "\${OUTPUT}", "\${WORKSPACE}", "\${RPM_BUILD_DIR}"]
 
