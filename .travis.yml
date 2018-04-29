@@ -3,12 +3,12 @@ sudo: required
 language: generic
 
 env:
-  - OS_TYPE=fedora OS_VERSION=27
-  - OS_TYPE=fedora OS_VERSION=26
-  - OS_TYPE=fedora OS_VERSION=25
-  - OS_TYPE=fedora OS_VERSION=24
-  - OS_TYPE=centos OS_VERSION=7
-  - OS_TYPE=centos OS_VERSION=6
+  matrix:
+    - OS_TYPE=fedora OS_VERSION=28
+    - OS_TYPE=fedora OS_VERSION=27
+    - OS_TYPE=fedora OS_VERSION=26
+    - OS_TYPE=centos OS_VERSION=7
+    - OS_TYPE=centos OS_VERSION=6
 
 services:
   - docker
