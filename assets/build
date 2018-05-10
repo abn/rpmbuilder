@@ -41,6 +41,6 @@ find ${RPM_BUILD_SRPMS} -name "${COMPONENT}*.rpm" \
     -exec mv {} ${OUTPUT} \;
 
 # fix uids
-if [ -v OUTPUT_UID ]; then
+if [ -z "${OUTPUT_UID}" ]; then
    chown -R ${OUTPUT_UID}:${OUTPUT_UID} ${OUTPUT}/*
 fi
