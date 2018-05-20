@@ -20,7 +20,7 @@ function generate() {
     cp -R ./assets ${ROOT}/.
     # cp LICENCE README.md
     YUM="yum"
-    PACKAGES="rpm-build rpmdevtools yum-utils"
+    PACKAGES="rpm-build rpmdevtools yum-utils rpmlint"
     case "${DISTRO}" in
         centos|cloudrouter*centos)
             EXTRA_PACKAGES="epel-release";
