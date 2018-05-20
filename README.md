@@ -4,7 +4,7 @@
 Available versions can be located by visiting [Docker Hub Repository](https://hub.docker.com/r/alectolytic/rpmbuilder/tags/).
 
 ### Fetch image
-```
+```bash
 BUILDER_VERSION=centos-7
 docker pull alectolytic/rpmbuilder:${BUILDER_VERSION}
 ```
@@ -12,7 +12,7 @@ docker pull alectolytic/rpmbuilder:${BUILDER_VERSION}
 ### Run
 In this example `SOURCE_DIR` contains spec file and sources for the the RPM we are building.
 
-```
+```bash
 # set env variables for conviniece
 SOURCE_DIR=$(pwd)/sources
 OUTPUT_DIR=$(pwd)/output
@@ -35,7 +35,7 @@ The output files will be available in `OUTPUT_DIR`.
 ###  Debugging
 If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by using the following command.
 
-```
+```bash
 docker run --rm -it --entrypoint bash \
     -v ${SOURCE_DIR}:/sources \
     -v ${OUTPUT_DIR}:/output \
