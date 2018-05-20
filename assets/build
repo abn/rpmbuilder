@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 
+# use exit codes of failing commands
+set -exo pipefail
+
 SOURCES=${SOURCES-/sources}
 OUTPUT=${OUTPUT-${SOURCES}}
 WORKSPACE=${WORKSPACE-/workspace}
-
-[[ -z ${SRPM_ONLY} ]] \
-    && RPMBUILD_MODE="-ba" \
-    || RPMBUILD_MODE="-bs"
 
 RPM_BUILD_SOURCES=$(rpmbuild --eval '%{_sourcedir}')
 RPM_BUILD_RPMS=$(rpmbuild --eval '%{_rpmdir}')
@@ -25,20 +24,33 @@ find ${WORKSPACE} -mindepth 1 -maxdepth 1 ! -name "*.spec" \
 BUILDDEP_CMD=yum-builddep
 command -v dnf > /dev/null 2>&1 && BUILDDEP_CMD="dnf builddep"
 
-# install deps and fetch any external sources
-# then do an RPM BUILD
-find ${WORKSPACE} -maxdepth 1 -type f -name "*.spec" \
-    -exec ${BUILDDEP_CMD} -y {} \; \
-    -exec spectool --sourcedir --get-files {} \; \
-    -exec rpmbuild ${RPMBUILD_OPTS} ${RPMBUILD_MODE} --clean {} \;
+for specFile in ${WORKSPACE}/*.spec; do
+  # install build requires
+  ${BUILDDEP_CMD} -y $specFile
+  spectool --sourcedir --get-files $specFile
 
-# extract RPMs
-find ${RPM_BUILD_RPMS} -name "${COMPONENT}*.rpm" \
-    -exec mv {} ${OUTPUT} \;
+  # build SRPM, also allows to fail quicker
+  rpmbuild -bs $specFile
 
-# extract SRPMs
-find ${RPM_BUILD_SRPMS} -name "${COMPONENT}*.rpm" \
-    -exec mv {} ${OUTPUT} \;
+  if [[ -n ${RPMLINT} ]]; then
+    # SRPM built successfully. Check it using rpmlint
+    rpmlint ${RPM_BUILD_SRPMS}/*.rpm
+  fi
+
+  mv ${RPM_BUILD_SRPMS}/*.rpm ${OUTPUT}
+
+  if [[ -z ${SRPM_ONLY} ]]; then
+    # attempting to build RPM now
+    rpmbuild -ba $specFile
+
+    if [[ -n ${RPMLINT} ]]; then
+      # RPM built successfully. Check it using rpmlint
+      rpmlint ${RPM_BUILD_RPMS}/*/*.rpm
+    fi
+
+    mv ${RPM_BUILD_RPMS}/*/*.rpm ${OUTPUT}
+  fi
+done
 
 # fix uids
 if [ -z "${OUTPUT_UID}" ]; then
