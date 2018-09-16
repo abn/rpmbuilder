@@ -43,6 +43,16 @@ docker run --rm -it --entrypoint bash \
 ```
 This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec file. You can also iteratively modify the specfile and re-run `build`.
 
+## Configuration
+The following configurations are available via environment variables
+
+| Variable  | Description |
+| :------------ | :------------ |
+| SOURCES | Configure source directory on the container file system |
+| OUTPUT | Configure output directory on the container file system |
+| WORKSPACE | Configure directory on the container file system to use as the workspace |
+| RPMLINT | If set, enables rpm linting once rpms are built |
+
 ## Volumes
 The following volumes can be mounted from the host.
 
