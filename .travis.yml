@@ -4,9 +4,9 @@ language: generic
 
 env:
   matrix:
+    - OS_TYPE=fedora OS_VERSION=31
     - OS_TYPE=fedora OS_VERSION=30
     - OS_TYPE=fedora OS_VERSION=29
-    - OS_TYPE=fedora OS_VERSION=28
     - OS_TYPE=centos OS_VERSION=7
     - OS_TYPE=centos OS_VERSION=6
 
