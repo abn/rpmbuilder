@@ -33,7 +33,7 @@ jobs:
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
-          echo "${REGISTRY_TOKEN}" | docker login ${IMAGE} -u "${REGISTRY_USER}" --password-stdin
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${IMAGE}
 
   centos:
@@ -62,5 +62,5 @@ jobs:
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
-          echo "${REGISTRY_TOKEN}" | docker login ${IMAGE} -u "${REGISTRY_USER}" --password-stdin
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${IMAGE}
