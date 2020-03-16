@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
+      fail-fast: false
       matrix:
         distro: [fedora]
         version: [30, 31, 32, latest]
@@ -21,6 +22,10 @@ jobs:
           BASE_IMAGE: docker.io/${{ matrix.distro }}:${{ matrix.version }}
           TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/build.sh
+      - name: Test Image
+        env:
+          TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+        run: ./bin/test.sh
       - name: Publish Image
         if: github.ref == 'refs/heads/master'
         env:
@@ -35,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 4
+      fail-fast: false
       matrix:
         distro: [centos]
         version: [7, 8, latest]
@@ -45,6 +51,10 @@ jobs:
           BASE_IMAGE: docker.io/${{ matrix.distro }}:${{ matrix.version }}
           TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/build.sh
+      - name: Test Image
+        env:
+          TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+        run: ./bin/test.sh
       - name: Publish Image
         if: github.ref == 'refs/heads/master'
         env:
