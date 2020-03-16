@@ -1,4 +1,6 @@
-[![Travis Build Status](https://travis-ci.org/abn/rpmbuilder.svg?branch=master)](https://travis-ci.org/abn/rpmbuilder) [![Docker Pulls](https://img.shields.io/docker/pulls/alectolytic/rpmbuilder.svg)](https://hub.docker.com/r/alectolytic/rpmbuilder/)
+[![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
+[![Docker Pulls](https://img.shields.io/docker/pulls/alectolytic/rpmbuilder.svg)](https://hub.docker.com/r/alectolytic/rpmbuilder/)
+
 # RPM build containers for Red Hat based various distros
 
 ### Available versions
