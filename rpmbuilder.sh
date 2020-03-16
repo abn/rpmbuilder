@@ -48,11 +48,11 @@ function build-from-spec() {
   spectool --sourcedir --get-files "$specFile"
 
   # build SRPM, also allows to fail quicker
-  rpmbuild -bs "$specFile"
+  rpmbuild -bs --target "${ARCH}" "$specFile"
 
   if [[ -z ${SRPM_ONLY} ]]; then
     # attempting to build RPM now
-    rpmbuild -ba --target ${ARCH}  "$specFile"
+    rpmbuild -ba --target "${ARCH}"  "$specFile"
   fi
 
   # ensure we retrieve only files we build
