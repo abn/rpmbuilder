@@ -21,13 +21,11 @@ OUTPUT_DIR=$(pwd)/output
 # create a output directory
 mkdir -p ${OUTPUT_DIR}
 
-# make SELinux happy
-chcon -Rt svirt_sandbox_file_t ${OUTPUT_DIR} ${SOURCE_DIR}
-
 # build rpm
-docker run \
-    -v ${SOURCE_DIR}:/sources \
-    -v ${OUTPUT_DIR}:/output \
+docker run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
     alectolytic/rpmbuilder:${BUILDER_VERSION}
 ```
 
@@ -38,8 +36,8 @@ If you are creating a spec file, it is often useful to have a clean room debuggi
 
 ```bash
 docker run --rm -it --entrypoint bash \
-    -v ${SOURCE_DIR}:/sources \
-    -v ${OUTPUT_DIR}:/output \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
     alectolytic/rpmbuilder:${BUILDER_VERSION}
 ```
 This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec file. You can also iteratively modify the specfile and re-run `build`.
@@ -51,8 +49,8 @@ The following configurations are available via environment variables
 | :------------ | :------------ |
 | SOURCES | Configure source directory on the container file system |
 | OUTPUT | Configure output directory on the container file system |
-| WORKSPACE | Configure directory on the container file system to use as the workspace |
-| RPMLINT | If set, enables rpm linting once rpms are built |
+| RPM_LINT | If set, enables rpm linting once rpms are built |
+| ARCH | Target architecture to build the rpm for, defaults to `x86_64` |
 
 ## Volumes
 The following volumes can be mounted from the host.
@@ -61,5 +59,3 @@ The following volumes can be mounted from the host.
 | :------------ | :------------ |
 | /sources | Source to build RPM from |
 | /output | Output directory where all built RPMs and SRPMs are extracted to |
-| /workspace | Temporary workspace created for staging sources |
-| /root/rpmbuild | rpmbuild directory for debugging etc |

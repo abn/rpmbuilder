@@ -1,0 +1,56 @@
+name: Image Build
+
+on:
+  push: {}
+  schedule:
+    # run build every week
+    - cron:  '0 0 * * 0'
+
+jobs:
+  fedora:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        distro: [fedora]
+        version: [30, 31, 32, latest]
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build Image
+        env:
+          BASE_IMAGE: docker.io/${{ matrix.distro }}:${{ matrix.version }}
+          TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+        run: ./bin/build.sh
+      - name: Publish Image
+        if: github.ref == 'refs/heads/master'
+        env:
+          IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          echo "${REGISTRY_TOKEN}" | docker login ${IMAGE} -u "${REGISTRY_USER}" --password-stdin
+          docker push ${IMAGE}
+
+  centos:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        distro: [centos]
+        version: [7, 8, latest]
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build Image
+        env:
+          BASE_IMAGE: docker.io/${{ matrix.distro }}:${{ matrix.version }}
+          TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+        run: ./bin/build.sh
+      - name: Publish Image
+        if: github.ref == 'refs/heads/master'
+        env:
+          IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          echo "${REGISTRY_TOKEN}" | docker login ${IMAGE} -u "${REGISTRY_USER}" --password-stdin
+          docker push ${IMAGE}
