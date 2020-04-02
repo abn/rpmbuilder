@@ -35,7 +35,7 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" ${REGISTRY}
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${REGISTRY}/${IMAGE}
       - name: Publish Image (quay.io)
         if: github.ref == 'refs/heads/master'
@@ -46,7 +46,7 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
           docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" ${REGISTRY}
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
           docker push ${REGISTRY}/${IMAGE}
 
   centos:
@@ -77,7 +77,7 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: |
           docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" ${REGISTRY}
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${REGISTRY}/${IMAGE}
       - name: Publish Image (quay.io)
         if: github.ref == 'refs/heads/master'
@@ -88,5 +88,5 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
           docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" ${REGISTRY}
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
           docker push ${REGISTRY}/${IMAGE}
