@@ -1,15 +1,16 @@
 [![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
+[![Quay Container](https://quay.io/repository/abn/rpmbuilder/status "Quay Container")](https://quay.io/repository/abn/rpmbuilder)
 [![Docker Pulls](https://img.shields.io/docker/pulls/alectolytic/rpmbuilder.svg)](https://hub.docker.com/r/alectolytic/rpmbuilder/)
 
 # RPM build containers for Red Hat based various distros
 
 ### Available versions
-Available versions can be located by visiting [Docker Hub Repository](https://hub.docker.com/r/alectolytic/rpmbuilder/tags/).
+Available versions can be located by visiting [Quay Container Repository](https://quay.io/repository/abn/rpmbuilder?tab=tags).
 
 ### Fetch image
 ```bash
 BUILDER_VERSION=centos-7
-docker pull alectolytic/rpmbuilder:${BUILDER_VERSION}
+docker pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
 ### Run
@@ -28,7 +29,7 @@ docker run --rm -it \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     -e OUTPUT_USER=$UID \
-    alectolytic/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
 The output files will be available in `OUTPUT_DIR`.
@@ -40,7 +41,7 @@ If you are creating a spec file, it is often useful to have a clean room debuggi
 docker run --rm -it --entrypoint bash \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
-    alectolytic/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec file. You can also iteratively modify the specfile and re-run `build`.
 

@@ -26,12 +26,21 @@ jobs:
         env:
           TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/test.sh
-      - name: Publish Image
+      - name: Publish Image (docker.io)
         if: github.ref == 'refs/heads/master'
         env:
           IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
+          docker push ${IMAGE}
+      - name: Publish Image (quay.io)
+        if: github.ref == 'refs/heads/master'
+        env:
+          IMAGE: quay.io/abn/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+          REGISTRY_USER: ${{ secrets.QUAY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
           docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${IMAGE}
@@ -55,12 +64,21 @@ jobs:
         env:
           TARGET_IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/test.sh
-      - name: Publish Image
+      - name: Publish Image (docker.io)
         if: github.ref == 'refs/heads/master'
         env:
           IMAGE: docker.io/alectolytic/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
           REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
           REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
+          docker push ${IMAGE}
+      - name: Publish Image (quay.io)
+        if: github.ref == 'refs/heads/master'
+        env:
+          IMAGE: quay.io/abn/rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
+          REGISTRY_USER: ${{ secrets.QUAY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
           docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${IMAGE}
