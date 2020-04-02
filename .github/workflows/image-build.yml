@@ -42,7 +42,7 @@ jobs:
           REGISTRY_USER: ${{ secrets.QUAY_USER }}
           REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
           docker push ${IMAGE}
 
   centos:
@@ -80,5 +80,5 @@ jobs:
           REGISTRY_USER: ${{ secrets.QUAY_USER }}
           REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
+          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
           docker push ${IMAGE}
