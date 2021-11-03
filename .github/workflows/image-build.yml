@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         distro: [fedora]
-        version: [32, 33, 34, latest]
+        version: [33, 34, 35, latest]
     steps:
       - uses: actions/checkout@v1
       - name: Build Image
