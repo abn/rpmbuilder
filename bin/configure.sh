@@ -2,8 +2,16 @@
 
 set -exo pipefail
 
-PACKAGE_MANAGER=$({ command -v dnf > /dev/null 2>&1 && echo "dnf"; } || echo "yum")
+PACKAGE_MANAGER=$({ command -v dnf >/dev/null 2>&1 && echo "dnf"; } || echo "yum")
 SYSTEM_CPE=$(cat /etc/system-release-cpe)
+
+if [[ "${SYSTEM_CPE}" == *":centos:8" ]]; then
+  # convert to centos stream for
+  ${PACKAGE_MANAGER} \
+    --disablerepo '*' \
+    --enablerepo=extras swap centos-linux-repos centos-stream-repos
+  ${PACKAGE_MANAGER} -y distrosync
+fi
 
 if [[ "${SYSTEM_CPE}" == *":centos:"* ]]; then
   ${PACKAGE_MANAGER} -y install "epel-release"
