@@ -7,56 +7,18 @@ on:
     - cron:  '0 0 * * 0'
 
 jobs:
-  fedora:
+  build:
     runs-on: ubuntu-latest
+    name: ${matrix.distro}:${matrix.version}
     strategy:
       max-parallel: 4
       fail-fast: false
       matrix:
-        distro: [fedora]
-        version: [34, 35, 36, latest]
-    steps:
-      - uses: actions/checkout@v1
-      - name: Build Image
-        env:
-          BASE_IMAGE: docker.io/${{ matrix.distro }}:${{ matrix.version }}
-          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: ./bin/build.sh
-      - name: Test Image
-        env:
-          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: ./bin/test.sh
-      - name: Publish Image (docker.io)
-        if: github.ref == 'refs/heads/master'
-        env:
-          IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-          REGISTRY: docker.io/alectolytic
-          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
-          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-        run: |
-          docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
-          docker push ${REGISTRY}/${IMAGE}
-      - name: Publish Image (quay.io)
-        if: github.ref == 'refs/heads/master'
-        env:
-          IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-          REGISTRY: quay.io/abn
-          REGISTRY_USER: ${{ secrets.QUAY_USER }}
-          REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
-        run: |
-          docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
-          docker push ${REGISTRY}/${IMAGE}
-
-  centos:
-    runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 4
-      fail-fast: false
-      matrix:
-        distro: [centos]
-        version: [7, 8, latest]
+        include:
+          - distro: fedora
+            version: [34, 35, 36, latest]
+          - distro: centos
+            version: [7, 8, latest]
     steps:
       - uses: actions/checkout@v1
       - name: Build Image
