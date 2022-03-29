@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: ${matrix.distro}:${matrix.version}
+    name: ${{ matrix.distro }}:${{ matrix.version }}
     strategy:
       max-parallel: 4
       fail-fast: false
