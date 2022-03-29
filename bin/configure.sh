@@ -7,7 +7,7 @@ SYSTEM_CPE=$(cat /etc/system-release-cpe)
 
 if [[ "${SYSTEM_CPE}" == *":centos:8" ]]; then
   # convert to centos stream for
-  ${PACKAGE_MANAGER} \
+  ${PACKAGE_MANAGER} -y \
     --disablerepo '*' \
     --enablerepo=extras swap centos-linux-repos centos-stream-repos
   ${PACKAGE_MANAGER} -y distrosync
