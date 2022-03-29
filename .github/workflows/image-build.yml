@@ -41,7 +41,7 @@ jobs:
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/test.sh
       - name: Publish Image (docker.io)
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         env:
           IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
           REGISTRY: docker.io/alectolytic
@@ -52,7 +52,7 @@ jobs:
           docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" docker.io
           docker push ${REGISTRY}/${IMAGE}
       - name: Publish Image (quay.io)
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         env:
           IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
           REGISTRY: quay.io/abn
