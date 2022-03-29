@@ -14,13 +14,21 @@ jobs:
       max-parallel: 4
       fail-fast: false
       matrix:
+        distro: [fedora, centos, rockylinux]
+        version: [latest]
         include:
           - distro: fedora
-            version: [34, 35, 36, latest]
+            version: 34
+          - distro: fedora
+            version: 35
+          - distro: fedora
+            version: 36
           - distro: centos
-            version: [7, 8, latest]
+            version: 7
+          - distro: centos
+            version: 8
           - distro: rockylinux
-            version: [34, 35, 36, latest]
+            version: 8
     steps:
       - uses: actions/checkout@v1
       - name: Build Image
