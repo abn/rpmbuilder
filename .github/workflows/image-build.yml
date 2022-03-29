@@ -25,8 +25,6 @@ jobs:
             version: 36
           - distro: centos
             version: 7
-          - distro: centos
-            version: 8
           - distro: rockylinux
             version: 8
     steps:
