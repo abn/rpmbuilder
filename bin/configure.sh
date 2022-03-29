@@ -13,7 +13,7 @@ if [[ "${SYSTEM_CPE}" == *":centos:8" ]]; then
   ${PACKAGE_MANAGER} -y distrosync
 fi
 
-if [[ "${SYSTEM_CPE}" == *":centos:"* ]]; then
+if [[ "${SYSTEM_CPE}" == *":rocky:"* ]] ||  [[ "${SYSTEM_CPE}" == *":centos:"* ]]; then
   ${PACKAGE_MANAGER} -y install "epel-release"
 fi
 

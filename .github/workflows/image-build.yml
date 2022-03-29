@@ -19,6 +19,8 @@ jobs:
             version: [34, 35, 36, latest]
           - distro: centos
             version: [7, 8, latest]
+          - distro: rockylinux
+            version: [34, 35, 36, latest]
     steps:
       - uses: actions/checkout@v1
       - name: Build Image
