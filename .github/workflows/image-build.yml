@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         distro: [fedora, centos, rockylinux]
-        version: []
         include:
           - distro: fedora
             version: 35
