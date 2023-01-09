@@ -21,6 +21,8 @@ jobs:
             version: 35
           - distro: fedora
             version: 36
+          - distro: fedora
+            version: 37
           - distro: centos
             version: 7
           - distro: rockylinux
