@@ -17,8 +17,6 @@ jobs:
         version: [latest]
         include:
           - distro: fedora
-            version: 36
-          - distro: fedora
             version: 37
           - distro: fedora
             version: 38
