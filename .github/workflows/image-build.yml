@@ -1,6 +1,7 @@
 name: Image Build
 
 on:
+  workflow_dispatch: {}
   push: {}
   schedule:
     # run build every week
