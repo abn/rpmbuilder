@@ -18,11 +18,11 @@ jobs:
         version: [latest]
         include:
           - distro: fedora
-            version: 37
-          - distro: fedora
             version: 38
           - distro: fedora
             version: 39
+          - distro: fedora
+            version: 40
           - distro: centos
             version: 7
           - distro: rockylinux
