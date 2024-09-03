@@ -14,17 +14,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [fedora, centos, rockylinux]
+        distro: [fedora, rockylinux]
         version: [latest]
         include:
-          - distro: fedora
-            version: 38
           - distro: fedora
             version: 39
           - distro: fedora
             version: 40
-          - distro: centos
-            version: 7
+          - distro: fedora
+            version: 41
+          - distro: fedora
+            version: 42
           - distro: rockylinux
             version: 8
           - distro: rockylinux
