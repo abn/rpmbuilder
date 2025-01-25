@@ -25,6 +25,8 @@ jobs:
             version: 41
           - distro: fedora
             version: 42
+          - distro: fedora
+            version: rawhide
           - distro: rockylinux
             version: 8
           - distro: rockylinux
