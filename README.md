@@ -5,15 +5,19 @@
 # RPM build containers for Red Hat based various distros
 
 ### Available versions
-Available versions can be located by visiting [Quay Container Repository](https://quay.io/repository/abn/rpmbuilder?tab=tags).
+
+Available versions can be located by
+visiting [Quay Container Repository](https://quay.io/repository/abn/rpmbuilder?tab=tags).
 
 ### Fetch image
+
 ```bash
 BUILDER_VERSION=centos-7
-docker pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+podman pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
 ### Run
+
 In this example `SOURCE_DIR` contains spec file and sources for the the RPM we are building.
 
 ```bash
@@ -25,7 +29,7 @@ OUTPUT_DIR=$(pwd)/output
 mkdir -p ${OUTPUT_DIR}
 
 # build rpm
-docker run --rm -it \
+podman run --rm -it \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     -e OUTPUT_USER=$UID \
@@ -34,31 +38,37 @@ docker run --rm -it \
 
 The output files will be available in `OUTPUT_DIR`.
 
-###  Debugging
-If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by using the following command.
+### Debugging
+
+If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by
+using the following command.
 
 ```bash
-docker run --rm -it --entrypoint bash \
+podman run --rm -it --entrypoint bash \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
-This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec file. You can also iteratively modify the specfile and re-run `build`.
+
+This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec
+file. You can also iteratively modify the specfile and re-run `build`.
 
 ## Configuration
+
 The following configurations are available via environment variables
 
-| Variable  | Description |
-| :------------ | :------------ |
-| SOURCES | Configure source directory on the container file system |
-| OUTPUT | Configure output directory on the container file system |
-| RPM_LINT | If set, enables rpm linting once rpms are built |
-| ARCH | Target architecture to build the rpm for, defaults to `x86_64` |
+| Variable | Description                                                    |
+|:---------|:---------------------------------------------------------------|
+| SOURCES  | Configure source directory on the container file system        |
+| OUTPUT   | Configure output directory on the container file system        |
+| RPM_LINT | If set, enables rpm linting once rpms are built                |
+| ARCH     | Target architecture to build the rpm for, defaults to `x86_64` |
 
 ## Volumes
+
 The following volumes can be mounted from the host.
 
-| Volume  | Description |
-| :------------ | :------------ |
-| /sources | Source to build RPM from |
-| /output | Output directory where all built RPMs and SRPMs are extracted to |
+| Volume   | Description                                                      |
+|:---------|:-----------------------------------------------------------------|
+| /sources | Source to build RPM from                                         |
+| /output  | Output directory where all built RPMs and SRPMs are extracted to |
