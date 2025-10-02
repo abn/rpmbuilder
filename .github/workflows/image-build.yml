@@ -29,9 +29,8 @@ jobs:
             version: 8
           - distro: rockylinux
             version: 9
-        exclude:
           - distro: rockylinux
-            version: latest
+            version: 10
     steps:
       - uses: actions/checkout@v5
       - name: Build Image
