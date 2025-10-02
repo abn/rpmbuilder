@@ -18,13 +18,11 @@ jobs:
         version: [latest]
         include:
           - distro: fedora
-            version: 39
-          - distro: fedora
-            version: 40
-          - distro: fedora
             version: 41
           - distro: fedora
             version: 42
+          - distro: fedora
+            version: 43
           - distro: fedora
             version: rawhide
           - distro: rockylinux
