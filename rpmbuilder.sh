@@ -41,12 +41,6 @@ fi
 function build-from-spec() {
   local specFile=$1
 
-  # install build requires
-  "${BUILDDEP_CMD[@]}" -y "$specFile"
-
-  # fetch any external source files
-  spectool --sourcedir --get-files "$specFile"
-
   # build SRPM, also allows to fail quicker
   rpmbuild -bs --target "${ARCH}" "$specFile"
 
@@ -76,6 +70,41 @@ function build-from-spec() {
 
 }
 
+function build-from-tito() {
+  echo "tito project detected. Installing tito..."
+  local SUDO_CMD=()
+  if [[ $EUID -ne 0 ]]; then
+    SUDO_CMD+=(sudo)
+  fi
+
+  if [[ -n "${DNF}" ]]; then
+    "${SUDO_CMD[@]}" dnf install -y tito
+  else
+    "${SUDO_CMD[@]}" yum install -y tito
+  fi
+  
+  echo "Building tito test release..."
+  local TITO_OUTPUT=$(mktemp -d)
+  
+  pushd "${SOURCES}" >/dev/null
+  tito build --test --srpm --output="${TITO_OUTPUT}"
+  if [[ -z ${SRPM_ONLY} ]]; then
+    tito build --test --rpm --output="${TITO_OUTPUT}"
+  fi
+  popd >/dev/null
+
+  # copy over rpm to output directory with correct ownership
+  for rpm in "${TITO_OUTPUT}"/**/*.rpm; do
+    if [[ -n "${RPM_LINT}" ]]; then
+      rpmlint --verbose --info "$rpm"
+    fi
+    install \
+      --owner "${OUTPUT_USER}" --group "${OUTPUT_USER}" \
+      --target-directory "${OUTPUT}" \
+      "$rpm"
+  done
+}
+
 sourceFiles=("${SOURCES}"/!(*.spec))
 specFiles=("${SOURCES}"/*.spec)
 
@@ -87,6 +116,16 @@ done
 # set required permissions
 chown -R "${USER}:${USER}" "${RPM_BUILD_SOURCES}"
 
+# install build requires and fetch sources for all spec files
 for specFile in "${specFiles[@]}"; do
-  build-from-spec "$specFile"
+  "${BUILDDEP_CMD[@]}" -y "$specFile"
+  spectool --sourcedir --get-files "$specFile"
 done
+
+if [[ -d "${SOURCES}/.tito" ]]; then
+  build-from-tito
+else
+  for specFile in "${specFiles[@]}"; do
+    build-from-spec "$specFile"
+  done
+fi
