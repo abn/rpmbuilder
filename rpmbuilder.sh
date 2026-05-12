@@ -78,19 +78,52 @@ function build-from-spec() {
 
 }
 
-function build-from-tito() {
-  echo "tito project detected. Installing tito..."
-  local SUDO_CMD=()
-  if [[ $EUID -ne 0 ]]; then
-    SUDO_CMD+=(sudo)
+function rebuild-from-srpm() {
+  local srpmFiles=("${SOURCES}"/*.src.rpm)
+
+  if [[ ! -f "${srpmFiles[0]}" ]]; then
+    echo "FROM_SRPM is set but no .src.rpm files found in ${SOURCES}" >&2
+    exit 1
   fi
 
-  if [[ -n "${DNF}" ]]; then
-    "${SUDO_CMD[@]}" dnf install -y tito
-  else
-    "${SUDO_CMD[@]}" yum install -y tito
+  for srpm in "${srpmFiles[@]}"; do
+    "${BUILDDEP_CMD[@]}" -y "$srpm"
+    rpmbuild --rebuild --target "${ARCH}" "$srpm"
+
+    local prefix
+    prefix=$(rpm -qp --queryformat '%{name}-%{version}-%{release}' "$srpm")
+
+    for rpm in "${RPM_BUILD_SRPMS}/${prefix}"*.rpm "${RPM_BUILD_RPMS}"/**/"${prefix}"*.rpm; do
+      if [[ -n "${RPM_LINT}" ]]; then
+        rpmlint --verbose --info "$rpm"
+      fi
+      install \
+        --owner "${OUTPUT_USER}" --group "${OUTPUT_USER}" \
+        --target-directory "${OUTPUT}" \
+        "$rpm"
+    done
+  done
+}
+
+function build-from-tito() {
+  if ! command -v tito > /dev/null 2>&1; then
+    echo "tito not found. Installing tito..."
+    local SUDO_CMD=()
+    if [[ $EUID -ne 0 ]]; then
+      SUDO_CMD+=(sudo)
+    fi
+
+    if { [[ -n "${DNF}" ]] && "${SUDO_CMD[@]}" dnf install -y tito; } \
+        || "${SUDO_CMD[@]}" yum install -y tito; then
+      :
+    else
+      local PKG_MGR; [[ -n "${DNF}" ]] && PKG_MGR=dnf || PKG_MGR=yum
+      "${SUDO_CMD[@]}" "${PKG_MGR}" install -y python3 python3-setuptools
+      python3 -m ensurepip
+      python3 -m pip install tito
+    fi
   fi
-  
+
   echo "Building tito test release..."
   local TITO_OUTPUT=$(mktemp -d)
   
@@ -130,7 +163,9 @@ for specFile in "${specFiles[@]}"; do
   spectool --sourcedir --get-files "$specFile"
 done
 
-if [[ -d "${SOURCES}/.tito" ]]; then
+if [[ -n "${FROM_SRPM}" ]]; then
+  rebuild-from-srpm
+elif [[ -d "${SOURCES}/.tito" ]]; then
   build-from-tito
 else
   for specFile in "${specFiles[@]}"; do
