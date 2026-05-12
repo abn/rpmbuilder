@@ -23,7 +23,7 @@ if [[ "${PACKAGE_MANAGER}" == "dnf" ]]; then
   ${PACKAGE_MANAGER} -y install "dnf-command(builddep)"
 fi
 
-${PACKAGE_MANAGER} -y install rpm-build rpmdevtools yum-utils rpmlint ${EXTRA_PACKAGES}
+${PACKAGE_MANAGER} -y install ca-certificates rpm-build rpmdevtools yum-utils rpmlint ${EXTRA_PACKAGES}
 
 ${PACKAGE_MANAGER} -y clean all
 

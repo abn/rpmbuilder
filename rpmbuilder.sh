@@ -23,6 +23,14 @@ install \
 
 { command -v dnf > /dev/null 2>&1 && DNF=1; } || :
 
+CA_ANCHORS_DIR="/etc/pki/ca-trust/source/anchors"
+if compgen -G "${CA_ANCHORS_DIR}/*" > /dev/null 2>&1; then
+  UPDATE_CA_CMD=()
+  [[ $EUID -ne 0 ]] && UPDATE_CA_CMD+=(sudo)
+  UPDATE_CA_CMD+=(update-ca-trust extract)
+  "${UPDATE_CA_CMD[@]}"
+fi
+
 # prepare builddep-command
 BUILDDEP_CMD=()
 if [[ $EUID -ne 0 ]]; then

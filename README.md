@@ -68,7 +68,19 @@ The following configurations are available via environment variables
 
 The following volumes can be mounted from the host.
 
-| Volume   | Description                                                      |
-|:---------|:-----------------------------------------------------------------|
-| /sources | Source to build RPM from                                         |
-| /output  | Output directory where all built RPMs and SRPMs are extracted to |
+| Volume                                  | Description                                                      |
+|:----------------------------------------|:-----------------------------------------------------------------|
+| /sources                                | Source to build RPM from                                         |
+| /output                                 | Output directory where all built RPMs and SRPMs are extracted to |
+| /etc/pki/ca-trust/source/anchors        | (optional) Directory of `.crt` files to add to the CA trust store before building |
+
+To inject corporate or self-signed CA certificates, mount a directory containing `.crt` files and the trust store will be updated automatically before any build steps run:
+
+```bash
+podman run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -v ${CERT_DIR}:/etc/pki/ca-trust/source/anchors:z \
+    -e OUTPUT_USER=$UID \
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+```
