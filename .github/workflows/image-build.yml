@@ -36,15 +36,18 @@ jobs:
           BASE_IMAGE: quay.io/${{ matrix.distro }}/${{ matrix.distro }}:${{ matrix.version }}
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: ./bin/build.sh
-      - name: Test Image
+      - name: Setup Bats
+        uses: bats-core/bats-action@4.0.0
+        with:
+          support-install: false
+          assert-install: false
+          detik-install: false
+          file-install: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test
         env:
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: ./bin/test.sh
-      - name: Test Tito Workflow
-        if: matrix.tito != 'false'
-        env:
-          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: ./bin/test-tito.sh
+        run: make test
       - name: Publish Image (quay.io)
         if: github.ref == 'refs/heads/main'
         env:
