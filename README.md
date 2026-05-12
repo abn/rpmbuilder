@@ -21,7 +21,7 @@ podman pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 In this example `SOURCE_DIR` contains spec file and sources for the the RPM we are building.
 
 ```bash
-# set env variables for conviniece
+# set env variables for convenience
 SOURCE_DIR=$(pwd)/sources
 OUTPUT_DIR=$(pwd)/output
 
@@ -37,6 +37,44 @@ podman run --rm -it \
 ```
 
 The output files will be available in `OUTPUT_DIR`.
+
+### Tito projects
+
+For projects managed by [tito](https://github.com/rpm-software-management/tito), use the same image as for spec-based builds. The image detects the presence of a `.tito` directory and automatically installs tito at runtime before building with `tito build --test`:
+
+```bash
+podman run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+```
+
+> **Note:** tito is available via EPEL on Fedora and EL 8/9 but is not yet available on EL 10 (e.g. Rocky Linux 10).
+
+#### Two-stage tito workflow (strict dependency isolation)
+
+Because tito and its dependencies are installed into the build environment at runtime, they could inadvertently satisfy undeclared `BuildRequires` in a spec file. To ensure only explicitly declared dependencies are used, run the build in two stages: generate the SRPM with tito in the first run, then rebuild the RPM from that SRPM in a second clean run without tito present.
+
+```bash
+# Stage 1: generate SRPM using tito
+podman run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
+    -e SRPM_ONLY=1 \
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+
+# Stage 2: rebuild RPM from SRPM in a clean environment (no tito)
+podman run --rm -it \
+    -v ${OUTPUT_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
+    -e FROM_SRPM=1 \
+    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+```
+
+The `FROM_SRPM=1` flag is required and intentional — it prevents the image from accidentally entering SRPM rebuild mode due to leftover `.src.rpm` files in the output directory.
 
 ### Debugging
 
@@ -57,12 +95,14 @@ file. You can also iteratively modify the specfile and re-run `build`.
 
 The following configurations are available via environment variables
 
-| Variable | Description                                                    |
-|:---------|:---------------------------------------------------------------|
-| SOURCES  | Configure source directory on the container file system        |
-| OUTPUT   | Configure output directory on the container file system        |
-| RPM_LINT | If set, enables rpm linting once rpms are built                |
-| ARCH     | Target architecture to build the rpm for, defaults to `x86_64` |
+| Variable   | Description                                                                                      |
+|:-----------|:-------------------------------------------------------------------------------------------------|
+| SOURCES    | Configure source directory on the container file system                                          |
+| OUTPUT     | Configure output directory on the container file system                                          |
+| RPM_LINT   | If set, enables rpm linting once rpms are built                                                  |
+| ARCH       | Target architecture to build the rpm for, defaults to `x86_64`                                  |
+| SRPM_ONLY  | If set, only builds and outputs the SRPM; skips binary RPM build                                 |
+| FROM_SRPM  | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
 
 ## Volumes
 

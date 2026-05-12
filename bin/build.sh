@@ -8,7 +8,7 @@ EXTRA_PACKAGES=${EXTRA_PACKAGES:-""}
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-docker build -t ${TARGET_IMAGE} -f - ${DIR}/../ << EOF
+docker build -t "${TARGET_IMAGE}" -f - "${DIR}"/../ << EOF
 FROM ${BASE_IMAGE}
 
 ARG EXTRA_PACKAGES
