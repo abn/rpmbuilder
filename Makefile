@@ -12,7 +12,7 @@ build: ## Build the rpmbuilder container image
 ##@ Test
 
 test: ## Run all tests in parallel
-	TARGET_IMAGE=$(TARGET_IMAGE) bats --jobs 2 test/
+	TARGET_IMAGE=$(TARGET_IMAGE) bats --jobs 2 --print-output-on-failure test/
 
 ##@ Utilities
 

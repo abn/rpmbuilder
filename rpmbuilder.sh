@@ -128,9 +128,13 @@ function build-from-tito() {
   local TITO_OUTPUT=$(mktemp -d)
   
   pushd "${SOURCES}" >/dev/null
-  tito build --test --srpm --output="${TITO_OUTPUT}"
-  if [[ -z ${SRPM_ONLY} ]]; then
+  if [[ -n "${TITO_RPM_ONLY}" ]]; then
     tito build --test --rpm --output="${TITO_OUTPUT}"
+  else
+    tito build --test --srpm --output="${TITO_OUTPUT}"
+    if [[ -z "${SRPM_ONLY}" ]]; then
+      tito build --test --rpm --output="${TITO_OUTPUT}"
+    fi
   fi
   popd >/dev/null
 
