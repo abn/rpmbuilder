@@ -10,6 +10,12 @@ git clone https://github.com/abn/hello-rpm-tito.git "${SOURCES}"
 /usr/bin/rpmbuilder'
 
 setup_file() {
+  # The two-stage tests form a producer->consumer pair: "stage 1" writes the
+  # SRPM into SRPM_DIR and "stage 2" reads it back. bats --jobs >1 would run
+  # them concurrently with no ordering guarantee, so stage 2 can start before
+  # stage 1 has written the SRPM. Keep this file's tests serial (cross-file
+  # parallelism with spec.bats is unaffected).
+  export BATS_NO_PARALLELIZE_WITHIN_FILE=true
   export SRPM_DIR="${BATS_SUITE_TMPDIR}/srpm"
   export OUTPUT_DIR="${BATS_SUITE_TMPDIR}/output"
   mkdir -p "${SRPM_DIR}" "${OUTPUT_DIR}"
