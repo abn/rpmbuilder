@@ -46,33 +46,17 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      # make build resolves podman on the runner and writes the image to the
+      # runner user's rootless store — the same store the build action's
+      # `podman run` reads — so no docker→podman bridge is needed. Rootless
+      # podman maps the runner user to container root, so the bind-mounted
+      # fixture checkouts are owned by container root inside the build and
+      # git/tito raise no "dubious ownership" error.
       - name: Build rpmbuilder image (current branch)
         env:
           BASE_IMAGE: quay.io/fedora/fedora:latest
           TARGET_IMAGE: localhost/rpmbuilder:fedora-latest
-        run: ./bin/build.sh
-
-      - name: Check for Podman
-        id: podman-check
-        run: |
-          if command -v podman &>/dev/null; then
-            echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Using pre-installed $(podman --version)"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install Podman
-        if: steps.podman-check.outputs.found == 'false'
-        uses: redhat-actions/podman-install@5bc2ecc87c737059124c295845be51ee7297fb89 # commit-5bc2ecc (2026-05-18)
-
-      # bin/build.sh builds with docker; the actions run with podman. Bridge
-      # the image into podman's local store so the actions resolve it without
-      # a registry pull. Rootless podman maps the runner user to container
-      # root, so the bind-mounted fixture checkouts are owned by container
-      # root inside the build — git/tito raise no "dubious ownership" error.
-      - name: Load image into Podman
-        run: docker save localhost/rpmbuilder:fedora-latest | podman load
+        run: make build
 
       # ── spec build via the build action ─────────────────────────────────
       - name: "build action — spec project"
