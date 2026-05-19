@@ -1,0 +1,144 @@
+name: Build RPMs
+
+# Reusable workflow — call this from your own workflow to build RPMs across
+# one or more rpmbuilder images (distro/version combinations).
+#
+# Basic usage (spec-file project):
+#
+#   jobs:
+#     rpm:
+#       uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
+#       with:
+#         sources-path: rpm
+#
+# Tito project (two-stage, strict dependency isolation):
+#
+#   jobs:
+#     rpm:
+#       uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
+#       with:
+#         sources-path: .
+#         tito-two-stage: true
+#         images: '["fedora-44","fedora-rawhide","rockylinux-9"]'
+#
+# Full reference: https://github.com/abn/rpmbuilder
+
+on:
+  workflow_call:
+    inputs:
+
+      sources-path:
+        description: >-
+          Path to the RPM sources directory, relative to the repository root.
+          For spec builds: a directory with a .spec file and source archives.
+          For tito builds: the project root containing a .tito directory.
+        required: true
+        type: string
+
+      images:
+        description: >-
+          JSON array of rpmbuilder image tag suffixes to build against.
+          Each suffix is resolved to quay.io/abn/rpmbuilder:<suffix>.
+          Available tags: https://quay.io/repository/abn/rpmbuilder?tab=tags
+          Example: '["fedora-44","fedora-rawhide","rockylinux-8","rockylinux-9"]'
+        required: false
+        default: '["fedora-latest","rockylinux-9"]'
+        type: string
+
+      tito-two-stage:
+        description: >-
+          Use the strict two-stage tito workflow: generate the SRPM via tito
+          in stage 1, then rebuild binary RPMs in a clean environment (no tito)
+          in stage 2. Ensures only declared BuildRequires are satisfied.
+          Requires a .tito directory inside sources-path.
+        required: false
+        default: false
+        type: boolean
+
+      arch:
+        description: >-
+          Target RPM architecture (e.g. x86_64, aarch64, noarch).
+          Applies to all matrix entries.
+        required: false
+        default: x86_64
+        type: string
+
+      rpm-lint:
+        description: >-
+          Run rpmlint on each built package. A non-zero exit from rpmlint will
+          fail the build step.
+        required: false
+        default: false
+        type: boolean
+
+      upload-artifacts:
+        description: >-
+          Upload built RPMs (and SRPMs) as workflow artifacts after each build.
+          Artifacts are named rpms-<image-tag> so parallel matrix jobs do not
+          conflict. Disable if you handle artifact storage yourself.
+        required: false
+        default: true
+        type: boolean
+
+      artifact-retention-days:
+        description: Number of days to retain uploaded RPM artifacts.
+        required: false
+        default: 7
+        type: number
+
+    outputs:
+      # Callers can inspect per-image results via the matrix job outputs, but
+      # workflow_call does not support dynamic output keys. Individual artifact
+      # names follow the pattern: rpms-<image-tag>.
+      images:
+        description: The JSON array of image tag suffixes that were built.
+        value: ${{ inputs.images }}
+
+jobs:
+  build:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(inputs.images) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # tito-two-stage selects the strict two-stage workflow; otherwise the
+      # action auto-detects spec vs tito and builds SRPM + RPM in one pass.
+      - name: Build RPMs
+        id: build
+        uses: abn/rpmbuilder/.github/actions/build@main
+        with:
+          image:       quay.io/abn/rpmbuilder:${{ matrix.image }}
+          sources-dir: ${{ github.workspace }}/${{ inputs.sources-path }}
+          output-dir:  ${{ runner.temp }}/rpmbuild-output
+          arch:        ${{ inputs.arch }}
+          rpm-lint:    ${{ inputs.rpm-lint }}
+          mode:        ${{ inputs.tito-two-stage && 'tito-two-stage' || 'auto' }}
+
+      # ── artifact upload ─────────────────────────────────────────────────
+      - name: Upload RPM artifacts
+        if: ${{ inputs.upload-artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          # Name includes the image tag so concurrent matrix jobs stay separate.
+          name: rpms-${{ matrix.image }}
+          path: ${{ runner.temp }}/rpmbuild-output/**/*.rpm
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: warn
+
+      # The intermediate SRPMs from stage 1 of the two-stage workflow are
+      # uploaded separately so they can be inspected or re-used without
+      # downloading the full binary RPM artifact.
+      - name: Upload intermediate SRPMs (two-stage only)
+        if: ${{ inputs.tito-two-stage && inputs.upload-artifacts }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: srpms-${{ matrix.image }}
+          path: ${{ steps.build.outputs.srpm-dir }}/**/*.src.rpm
+          retention-days: ${{ inputs.artifact-retention-days }}
+          if-no-files-found: warn

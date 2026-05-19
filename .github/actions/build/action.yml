@@ -1,0 +1,349 @@
+name: Build RPM
+description: >-
+  Build RPMs and/or SRPMs using the rpmbuilder container image. A single
+  mode input selects the use case: auto-detected spec/tito builds, SRPM-only,
+  rebuild-from-SRPM, one-shot tito, or the strict two-stage tito workflow.
+
+branding:
+  icon: package
+  color: red
+
+inputs:
+  image:
+    description: >-
+      Fully-qualified rpmbuilder image reference.
+      Tag format is <distro>-<version>, e.g. quay.io/abn/rpmbuilder:fedora-44
+      or quay.io/abn/rpmbuilder:rockylinux-9.
+    required: false
+    default: quay.io/abn/rpmbuilder:fedora-latest
+
+  sources-dir:
+    description: >-
+      Path to the RPM sources on the runner:
+        - spec / tito builds: directory with the .spec file and sources,
+          or the tito project root (must contain a .tito directory)
+        - mode=from-srpm: a directory of .src.rpm files
+    required: true
+
+  output-dir:
+    description: >-
+      Directory on the runner where built RPMs and SRPMs will be written.
+      Created automatically if it does not exist.
+    required: false
+    default: ${{ github.workspace }}/rpmbuild-output
+
+  mode:
+    description: >-
+      Which build use case to run. One of:
+        - auto           detect spec vs tito from sources-dir; build SRPM + RPM
+        - srpm-only      stop after the SRPM, skip binary RPM compilation
+        - from-srpm      treat sources-dir as .src.rpm files; rebuild in a
+                         clean environment (no tito present)
+        - tito-rpm-only  tito projects: run 'tito build --rpm' directly,
+                         skipping the intermediate SRPM (no SRPM artifact)
+        - tito-two-stage tito projects: generate the SRPM via tito, then
+                         rebuild binary RPMs from it in a fresh container
+                         with no tito present, so only declared BuildRequires
+                         can be satisfied (strict dependency isolation)
+    required: false
+    default: auto
+
+  arch:
+    description: >-
+      Target RPM architecture, e.g. x86_64, aarch64, or noarch.
+      Passed as the --forcearch / --target flag to the build toolchain.
+    required: false
+    default: x86_64
+
+  rpm-lint:
+    description: >-
+      Set to 'true' to run rpmlint on each built binary package. A non-zero
+      rpmlint exit code will fail the step. In tito-two-stage mode this
+      applies to the stage-2 binary RPMs.
+    required: false
+    default: 'false'
+
+  ca-certs-dir:
+    description: >-
+      Path to a host directory containing .crt files. The files are mounted
+      into the container and added to the CA trust store before any build step
+      runs. Applied to every container run. Required in environments with
+      corporate or self-signed root CAs.
+    required: false
+    default: ''
+
+outputs:
+  output-dir:
+    description: Absolute path to the directory containing built binary RPMs (and SRPMs, except in tito-two-stage mode where SRPMs go to srpm-dir).
+    value: ${{ steps.prepare.outputs.output-dir }}
+
+  srpm-dir:
+    description: >-
+      Absolute path to the directory containing intermediate SRPMs. Only set
+      in tito-two-stage mode (stage-1 output); empty string otherwise.
+    value: ${{ steps.prepare.outputs.srpm-dir }}
+
+  rpm-files:
+    description: >-
+      Newline-separated absolute paths of built binary RPMs (excludes SRPMs).
+      Empty string when mode is srpm-only.
+    value: ${{ steps.report.outputs.rpm-files }}
+
+  srpm-files:
+    description: Newline-separated absolute paths of built/intermediate SRPMs.
+    value: ${{ steps.report.outputs.srpm-files }}
+
+  rpm-count:
+    description: Number of binary RPMs produced.
+    value: ${{ steps.report.outputs.rpm-count }}
+
+  srpm-count:
+    description: Number of SRPMs produced.
+    value: ${{ steps.report.outputs.srpm-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check for Podman
+      id: podman-check
+      shell: bash
+      run: |
+        if command -v podman &>/dev/null; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Using pre-installed $(podman --version)"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+        # For private registries, call redhat-actions/podman-login before this action.
+        echo "CONTAINER_CLI=podman" >> "$GITHUB_ENV"
+
+    - name: Install Podman
+      if: steps.podman-check.outputs.found == 'false'
+      uses: redhat-actions/podman-install@5bc2ecc87c737059124c295845be51ee7297fb89 # commit-5bc2ecc (2026-05-18)
+
+    - name: Validate mode and prepare directories
+      id: prepare
+      shell: bash
+      env:
+        MODE:       ${{ inputs.mode }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        case "${MODE}" in
+          auto|srpm-only|from-srpm|tito-rpm-only|tito-two-stage) ;;
+          *)
+            echo "::error title=Invalid mode::'${MODE}' is not valid (expected: auto, srpm-only, from-srpm, tito-rpm-only, tito-two-stage)"
+            exit 1
+            ;;
+        esac
+
+        mkdir -p "${OUTPUT_DIR}"
+        echo "output-dir=$(realpath "${OUTPUT_DIR}")" >> "$GITHUB_OUTPUT"
+
+        if [[ "${MODE}" == "tito-two-stage" ]]; then
+          # Stage-1 SRPMs go to a separate temp dir so stage 2 rebuilds from a
+          # clean source set and the caller can publish them independently.
+          echo "srpm-dir=$(mktemp -d)" >> "$GITHUB_OUTPUT"
+        else
+          echo "srpm-dir=" >> "$GITHUB_OUTPUT"
+        fi
+
+    # ── single-pass build (every mode except tito-two-stage) ────────────
+    - name: Run rpmbuilder
+      if: inputs.mode != 'tito-two-stage'
+      shell: bash
+      env:
+        SOURCES_DIR:    ${{ inputs.sources-dir }}
+        OUTPUT_DIR:     ${{ steps.prepare.outputs.output-dir }}
+        IMAGE:          ${{ inputs.image }}
+        ARCH:           ${{ inputs.arch }}
+        MODE:           ${{ inputs.mode }}
+        INPUT_RPM_LINT: ${{ inputs.rpm-lint }}
+        CA_CERTS_DIR:   ${{ inputs.ca-certs-dir }}
+      run: |
+        CONTAINER_ARGS=(
+          --rm
+          --volume "${SOURCES_DIR}:/sources:z"
+          --volume "${OUTPUT_DIR}:/output:z"
+          --env OUTPUT_USER="$(id -u)"
+          --env ARCH="${ARCH}"
+        )
+        [[ -n "${CA_CERTS_DIR}" ]] && \
+          CONTAINER_ARGS+=(--volume "${CA_CERTS_DIR}:/etc/pki/ca-trust/source/anchors:z")
+        [[ "${INPUT_RPM_LINT}" == "true" ]] && CONTAINER_ARGS+=(--env RPM_LINT=1)
+        case "${MODE}" in
+          srpm-only)     CONTAINER_ARGS+=(--env SRPM_ONLY=1) ;;
+          from-srpm)     CONTAINER_ARGS+=(--env FROM_SRPM=1) ;;
+          tito-rpm-only) CONTAINER_ARGS+=(--env TITO_RPM_ONLY=1) ;;
+          auto)          : ;;
+        esac
+        ${CONTAINER_CLI} run "${CONTAINER_ARGS[@]}" "${IMAGE}"
+
+    # ── tito-two-stage: stage 1 — generate SRPM via tito ────────────────
+    - name: "Stage 1 — Generate SRPM via tito"
+      if: inputs.mode == 'tito-two-stage'
+      shell: bash
+      env:
+        SOURCES_DIR:  ${{ inputs.sources-dir }}
+        SRPM_DIR:     ${{ steps.prepare.outputs.srpm-dir }}
+        IMAGE:        ${{ inputs.image }}
+        ARCH:         ${{ inputs.arch }}
+        CA_CERTS_DIR: ${{ inputs.ca-certs-dir }}
+      run: |
+        CONTAINER_ARGS=(
+          --rm
+          --volume "${SOURCES_DIR}:/sources:z"
+          --volume "${SRPM_DIR}:/output:z"
+          --env OUTPUT_USER="$(id -u)"
+          --env ARCH="${ARCH}"
+          --env SRPM_ONLY=1
+        )
+        [[ -n "${CA_CERTS_DIR}" ]] && \
+          CONTAINER_ARGS+=(--volume "${CA_CERTS_DIR}:/etc/pki/ca-trust/source/anchors:z")
+        ${CONTAINER_CLI} run "${CONTAINER_ARGS[@]}" "${IMAGE}"
+
+    - name: "Stage 1 — Verify SRPM output"
+      if: inputs.mode == 'tito-two-stage'
+      shell: bash
+      env:
+        SRPM_DIR: ${{ steps.prepare.outputs.srpm-dir }}
+      run: |
+        if ! compgen -G "${SRPM_DIR}/*.src.rpm" > /dev/null; then
+          echo "::error title=Stage 1 failed::No .src.rpm files found in ${SRPM_DIR}"
+          exit 1
+        fi
+        echo "::notice title=Stage 1 complete::SRPM generated; rebuilding in a clean environment"
+
+    # ── tito-two-stage: stage 2 — rebuild from SRPM, no tito ────────────
+    - name: "Stage 2 — Rebuild RPMs from SRPM (clean environment, no tito)"
+      if: inputs.mode == 'tito-two-stage'
+      shell: bash
+      env:
+        SRPM_DIR:       ${{ steps.prepare.outputs.srpm-dir }}
+        OUTPUT_DIR:     ${{ steps.prepare.outputs.output-dir }}
+        IMAGE:          ${{ inputs.image }}
+        ARCH:           ${{ inputs.arch }}
+        INPUT_RPM_LINT: ${{ inputs.rpm-lint }}
+        CA_CERTS_DIR:   ${{ inputs.ca-certs-dir }}
+      run: |
+        CONTAINER_ARGS=(
+          --rm
+          --volume "${SRPM_DIR}:/sources:z"
+          --volume "${OUTPUT_DIR}:/output:z"
+          --env OUTPUT_USER="$(id -u)"
+          --env ARCH="${ARCH}"
+          --env FROM_SRPM=1
+        )
+        [[ -n "${CA_CERTS_DIR}" ]] && \
+          CONTAINER_ARGS+=(--volume "${CA_CERTS_DIR}:/etc/pki/ca-trust/source/anchors:z")
+        [[ "${INPUT_RPM_LINT}" == "true" ]] && CONTAINER_ARGS+=(--env RPM_LINT=1)
+        ${CONTAINER_CLI} run "${CONTAINER_ARGS[@]}" "${IMAGE}"
+
+    - name: Report results
+      id: report
+      shell: bash
+      env:
+        SOURCES_DIR:    ${{ inputs.sources-dir }}
+        OUTPUT_DIR:     ${{ steps.prepare.outputs.output-dir }}
+        SRPM_DIR:       ${{ steps.prepare.outputs.srpm-dir }}
+        IMAGE:          ${{ inputs.image }}
+        ARCH:           ${{ inputs.arch }}
+        MODE:           ${{ inputs.mode }}
+        INPUT_RPM_LINT: ${{ inputs.rpm-lint }}
+      run: |
+        # ── mode label ──────────────────────────────────────────────────────
+        case "${MODE}" in
+          tito-two-stage) MODE_LABEL="Tito — two-stage (strict isolation)" ;;
+          from-srpm)      MODE_LABEL="Rebuild from SRPM" ;;
+          tito-rpm-only)  MODE_LABEL="Tito — RPM only" ;;
+          srpm-only)
+            [[ -d "${SOURCES_DIR}/.tito" ]] \
+              && MODE_LABEL="Tito — SRPM only" \
+              || MODE_LABEL="Spec — SRPM only"
+            ;;
+          *)
+            [[ -d "${SOURCES_DIR}/.tito" ]] \
+              && MODE_LABEL="Tito — SRPM + RPM" \
+              || MODE_LABEL="Spec — SRPM + RPM"
+            ;;
+        esac
+
+        # ── collect artifacts ───────────────────────────────────────────────
+        # Binary RPMs always land in OUTPUT_DIR. SRPMs land in OUTPUT_DIR for
+        # single-pass modes, or in SRPM_DIR for the two-stage workflow.
+        mapfile -t RPM_FILES < <(find "${OUTPUT_DIR}" -name "*.rpm" ! -name "*.src.rpm" | sort)
+        if [[ "${MODE}" == "tito-two-stage" ]]; then
+          mapfile -t SRPM_FILES < <(find "${SRPM_DIR}" -name "*.src.rpm" | sort)
+        else
+          mapfile -t SRPM_FILES < <(find "${OUTPUT_DIR}" -name "*.src.rpm" | sort)
+        fi
+        RPM_COUNT=${#RPM_FILES[@]}
+        SRPM_COUNT=${#SRPM_FILES[@]}
+
+        # ── set action outputs ──────────────────────────────────────────────
+        DELIM=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        {
+          echo "rpm-files<<${DELIM}"
+          printf '%s\n' "${RPM_FILES[@]}"
+          echo "${DELIM}"
+          echo "srpm-files<<${DELIM}"
+          printf '%s\n' "${SRPM_FILES[@]}"
+          echo "${DELIM}"
+          echo "rpm-count=${RPM_COUNT}"
+          echo "srpm-count=${SRPM_COUNT}"
+        } >> "$GITHUB_OUTPUT"
+
+        # ── inline annotation ───────────────────────────────────────────────
+        if (( RPM_COUNT + SRPM_COUNT > 0 )); then
+          echo "::notice title=RPM build complete::${RPM_COUNT} binary RPM(s) and ${SRPM_COUNT} SRPM(s) built with ${IMAGE}"
+        else
+          echo "::warning title=No artifacts::No RPM files found — the build may have produced no output"
+        fi
+
+        # ── job summary ─────────────────────────────────────────────────────
+        {
+          echo "## RPM Build Results"
+          echo ""
+          echo "| | |"
+          echo "|---|---|"
+          echo "| **Runtime** | \`${CONTAINER_CLI}\` |"
+          echo "| **Image** | \`${IMAGE}\` |"
+          echo "| **Architecture** | \`${ARCH}\` |"
+          echo "| **Mode** | ${MODE_LABEL} |"
+          [[ "${INPUT_RPM_LINT}" == "true" ]] && echo "| **RPM lint** | enabled |"
+          echo ""
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        if (( RPM_COUNT > 0 )); then
+          {
+            echo "### Binary RPMs (${RPM_COUNT})"
+            echo ""
+            echo "| Package | Size |"
+            echo "|---------|------|"
+            for f in "${RPM_FILES[@]}"; do
+              echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) |"
+            done
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if (( SRPM_COUNT > 0 )); then
+          {
+            if [[ "${MODE}" == "tito-two-stage" ]]; then
+              echo "### Source RPMs (${SRPM_COUNT}) — stage 1, rebuilt in a clean environment"
+            else
+              echo "### Source RPMs (${SRPM_COUNT})"
+            fi
+            echo ""
+            echo "| Package | Size |"
+            echo "|---------|------|"
+            for f in "${SRPM_FILES[@]}"; do
+              echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) |"
+            done
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if (( RPM_COUNT == 0 && SRPM_COUNT == 0 )); then
+          echo "> **Warning**: No RPM files were found in the output directory." \
+            >> "$GITHUB_STEP_SUMMARY"
+        fi

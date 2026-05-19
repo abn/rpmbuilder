@@ -1,0 +1,131 @@
+name: Action Self-Test
+
+# Exercises the composite actions in .github/actions/ against the project's
+# canonical test fixtures, using an image built from the current branch.
+#
+# This validates the actions themselves (input handling, podman invocation,
+# outputs, job summaries) end to end, not just the container image — which is
+# covered separately by the BATS suite in image-build.yml.
+#
+# The fixtures are the same public repos the BATS suite uses:
+#   - spec: github.com/abn/hello-rpm        (a plain .spec project)
+#   - tito: github.com/abn/hello-rpm-tito   (a .tito project)
+#
+# The actions are referenced via the local ./.github/actions/<name> path so
+# the code under test is this branch's, not whatever main points at.
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  action-test:
+    name: Validate composite actions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout rpmbuilder
+        uses: actions/checkout@v5
+
+      # Plain spec project. Shallow checkout is fine — no git history is used.
+      - name: Checkout spec fixture (abn/hello-rpm)
+        uses: actions/checkout@v5
+        with:
+          repository: abn/hello-rpm
+          path: fixtures/spec
+
+      # Tito builds version off the git tree, so fetch full history + tags
+      # (mirrors the full `git clone` the BATS tito tests perform).
+      - name: Checkout tito fixture (abn/hello-rpm-tito)
+        uses: actions/checkout@v5
+        with:
+          repository: abn/hello-rpm-tito
+          path: fixtures/tito
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Build rpmbuilder image (current branch)
+        env:
+          BASE_IMAGE: quay.io/fedora/fedora:latest
+          TARGET_IMAGE: localhost/rpmbuilder:fedora-latest
+        run: ./bin/build.sh
+
+      - name: Check for Podman
+        id: podman-check
+        run: |
+          if command -v podman &>/dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using pre-installed $(podman --version)"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Podman
+        if: steps.podman-check.outputs.found == 'false'
+        uses: redhat-actions/podman-install@5bc2ecc87c737059124c295845be51ee7297fb89 # commit-5bc2ecc (2026-05-18)
+
+      # bin/build.sh builds with docker; the actions run with podman. Bridge
+      # the image into podman's local store so the actions resolve it without
+      # a registry pull. Rootless podman maps the runner user to container
+      # root, so the bind-mounted fixture checkouts are owned by container
+      # root inside the build — git/tito raise no "dubious ownership" error.
+      - name: Load image into Podman
+        run: docker save localhost/rpmbuilder:fedora-latest | podman load
+
+      # ── spec build via the build action ─────────────────────────────────
+      - name: "build action — spec project"
+        id: spec
+        uses: ./.github/actions/build
+        with:
+          image:       localhost/rpmbuilder:fedora-latest
+          sources-dir: ${{ github.workspace }}/fixtures/spec
+          output-dir:  ${{ runner.temp }}/out-spec
+
+      - name: "build action — assert spec produced RPM + SRPM"
+        env:
+          RPM_COUNT:  ${{ steps.spec.outputs.rpm-count }}
+          SRPM_COUNT: ${{ steps.spec.outputs.srpm-count }}
+        run: |
+          echo "spec build → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
+          (( RPM_COUNT  > 0 )) || { echo "::error::spec build produced no binary RPMs"; exit 1; }
+          (( SRPM_COUNT > 0 )) || { echo "::error::spec build produced no SRPMs"; exit 1; }
+
+      # ── one-shot tito via the build action ──────────────────────────────
+      - name: "build action — tito one-shot (mode: tito-rpm-only)"
+        id: tito_one
+        uses: ./.github/actions/build
+        with:
+          image:       localhost/rpmbuilder:fedora-latest
+          sources-dir: ${{ github.workspace }}/fixtures/tito
+          output-dir:  ${{ runner.temp }}/out-tito-one
+          mode:        tito-rpm-only
+
+      - name: "build action — assert tito one-shot produced RPM, no SRPM"
+        env:
+          RPM_COUNT:  ${{ steps.tito_one.outputs.rpm-count }}
+          SRPM_COUNT: ${{ steps.tito_one.outputs.srpm-count }}
+        run: |
+          echo "tito one-shot → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
+          (( RPM_COUNT  > 0 ))  || { echo "::error::tito one-shot produced no binary RPMs"; exit 1; }
+          (( SRPM_COUNT == 0 )) || { echo "::error::tito-rpm-only must not emit an SRPM"; exit 1; }
+
+      # ── two-stage tito via the build action (mode: tito-two-stage) ──────
+      - name: "build action — tito two-stage (mode: tito-two-stage)"
+        id: tito_two
+        uses: ./.github/actions/build
+        with:
+          image:       localhost/rpmbuilder:fedora-latest
+          sources-dir: ${{ github.workspace }}/fixtures/tito
+          output-dir:  ${{ runner.temp }}/out-tito-two
+          mode:        tito-two-stage
+
+      - name: "build action — assert two-stage RPM rebuilt from stage-1 SRPM"
+        env:
+          RPM_COUNT:  ${{ steps.tito_two.outputs.rpm-count }}
+          SRPM_COUNT: ${{ steps.tito_two.outputs.srpm-count }}
+        run: |
+          echo "tito two-stage → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
+          (( RPM_COUNT  > 0 )) || { echo "::error::two-stage produced no binary RPMs"; exit 1; }
+          (( SRPM_COUNT > 0 )) || { echo "::error::two-stage produced no stage-1 SRPM"; exit 1; }

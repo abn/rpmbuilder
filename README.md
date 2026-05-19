@@ -90,6 +90,69 @@ podman run --rm -it --entrypoint bash \
 This command will drop you into a bash shell within the container. From here, you can execute `rpmbuilder` to build the spec
 file. You can also iteratively modify the specfile and re-run `rpmbuilder`.
 
+## GitHub Actions
+
+rpmbuilder ships ready-to-use GitHub Actions so you can build RPMs/SRPMs in
+CI without writing container plumbing. They are **consumed by path
+reference** (this project publishes a container image, not a Marketplace
+action), so reference them as `abn/rpmbuilder/...@<ref>`. Pin to a tag or
+commit SHA instead of `@main` for reproducible builds.
+
+| Component | Reference | Use when |
+|:----------|:----------|:---------|
+| Reusable workflow | [`.github/workflows/rpm-build.yml`](.github/workflows/rpm-build.yml) | You want a turnkey matrix build (multiple images) + artifact upload |
+| `build` action | [`.github/actions/build`](.github/actions/build/README.md) | You need a single build step; the `mode` input selects the use case (spec/tito auto, srpm-only, from-srpm, tito-rpm-only, tito-two-stage) |
+
+All actions run the image with **rootless podman** (installed via
+`redhat-actions/podman-install` when not preinstalled). For private
+registries, call `redhat-actions/podman-login` before them.
+
+### Reusable workflow (fastest path)
+
+Spec-file project, default image matrix:
+
+```yaml
+jobs:
+  rpm:
+    uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
+    with:
+      sources-path: rpm
+```
+
+Tito project with strict two-stage isolation across several images:
+
+```yaml
+jobs:
+  rpm:
+    uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
+    with:
+      sources-path:   .
+      tito-two-stage: true
+      images: '["fedora-44","fedora-rawhide","rockylinux-9"]'
+```
+
+Workflow inputs: `sources-path` (required), `images` (JSON array of tag
+suffixes, default `["fedora-latest","rockylinux-9"]`), `tito-two-stage`,
+`arch`, `rpm-lint`, `upload-artifacts`, `artifact-retention-days`. Built
+artifacts are uploaded as `rpms-<image>` (and `srpms-<image>` for two-stage).
+
+### Composite action (single step)
+
+```yaml
+- uses: abn/rpmbuilder/.github/actions/build@main
+  with:
+    sources-dir: ${{ github.workspace }}/rpm
+    mode:        auto   # or: srpm-only | from-srpm |
+                        #     tito-rpm-only | tito-two-stage
+```
+
+See the [`build` action README](.github/actions/build/README.md) for the
+full input/output reference, the `mode` table, and more examples. The action
+is exercised on every PR by
+[`.github/workflows/action-test.yml`](.github/workflows/action-test.yml),
+which builds the current image and validates the spec, one-shot tito, and
+two-stage tito paths against canonical fixtures.
+
 ## Configuration
 
 The following configurations are available via environment variables
