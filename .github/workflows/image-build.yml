@@ -31,11 +31,16 @@ jobs:
             version: 10
     steps:
       - uses: actions/checkout@v5
+      - name: Resolve container runtime
+        run: |
+          CLI=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
+          echo "CONTAINER_CLI=${CLI}" >> "$GITHUB_ENV"
+          echo "::notice::Using ${CLI} ($(${CLI} --version))"
       - name: Build Image
         env:
           BASE_IMAGE: quay.io/${{ matrix.distro }}/${{ matrix.distro }}:${{ matrix.version }}
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: ./bin/build.sh
+        run: make build
       - name: Setup Bats
         uses: bats-core/bats-action@4.0.0
         with:
@@ -56,6 +61,6 @@ jobs:
           REGISTRY_USER: ${{ secrets.QUAY_USER }}
           REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
         run: |
-          docker tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          docker login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
-          docker push ${REGISTRY}/${IMAGE}
+          ${CONTAINER_CLI} tag ${IMAGE} ${REGISTRY}/${IMAGE}
+          ${CONTAINER_CLI} login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
+          ${CONTAINER_CLI} push ${REGISTRY}/${IMAGE}
