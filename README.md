@@ -223,4 +223,4 @@ BASE_IMAGE=rockylinux:9 TARGET_IMAGE=rpmbuilder:rocky-9 make build
 CONTAINER_CLI=docker make build
 ```
 
-`make test` runs the BATS suite against the built image.
+`make test` runs the BATS suite against the image (requires a prior `make build`).
