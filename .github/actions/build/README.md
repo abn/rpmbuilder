@@ -1,9 +1,8 @@
 # `build` — Build RPM action
 
 Build RPMs and/or SRPMs with the [rpmbuilder](https://github.com/abn/rpmbuilder)
-container image. A single `mode` input selects the use case — spec/tito
-auto-detection, SRPM-only, rebuild-from-SRPM, one-shot tito, or the strict
-two-stage tito workflow — so every supported build is one action.
+container image in a **single container run**. A `mode` input selects the use
+case: spec/tito auto-detection, SRPM-only, rebuild-from-SRPM, or one-shot tito.
 
 > This action is consumed by path reference, not from the GitHub Marketplace:
 >
@@ -43,25 +42,47 @@ before this action.
 
 `mode` selects one mutually-exclusive use case (default `auto`):
 
-| `mode`           | What it does |
-|:-----------------|:-------------|
-| `auto`           | Detect spec vs tito from `sources-dir`; build SRPM + binary RPM |
-| `srpm-only`      | Stop after the SRPM; skip binary RPM compilation |
-| `from-srpm`      | Treat `sources-dir` as a directory of `.src.rpm` files; rebuild binary RPMs from them in a clean environment (no tito) |
-| `tito-rpm-only`  | Tito project: run `tito build --rpm` directly, skipping the intermediate SRPM (no SRPM artifact) |
-| `tito-two-stage` | Tito project, **strict dependency isolation**: generate the SRPM with tito, then rebuild the binary RPMs from it in a *fresh* container with **no tito present**, so only explicitly declared `BuildRequires` can be satisfied |
+| `mode`          | What it does |
+|:----------------|:-------------|
+| `auto`          | Detect spec vs tito from `sources-dir`; build SRPM + binary RPM |
+| `srpm-only`     | Stop after the SRPM; skip binary RPM compilation |
+| `from-srpm`     | Treat `sources-dir` as a directory of `.src.rpm` files; rebuild binary RPMs from them in a clean environment (no tito present) |
+| `tito-one-shot` | Tito project: build via a single `tito build --rpm` invocation instead of the default separate `tito --srpm` + `tito --rpm` steps. Faster; produces the **same** artifacts (the SRPM is still emitted alongside the binary RPM) |
 
 An unrecognised `mode` fails the step early with a clear error.
 
-> **Why `tito-two-stage`?** tito and its dependencies are installed into the
-> build environment at runtime and could inadvertently satisfy an *undeclared*
-> `BuildRequires`. The two-stage workflow rebuilds in a clean container so the
-> resulting RPM is guaranteed to depend only on declared build requirements.
-> Use it when an undeclared-`BuildRequires` leak would be a correctness or
-> policy problem; otherwise `auto` builds tito projects in a single pass.
->
 > tito is available via EPEL on Fedora and EL 8/9 but not on EL 10
 > (e.g. Rocky Linux 10).
+
+### Strict two-stage tito builds (composition, not a mode)
+
+tito and its dependencies are installed into the build environment at runtime
+and could inadvertently satisfy an *undeclared* `BuildRequires`. To guarantee
+the RPM depends only on declared build requirements, rebuild the SRPM in a
+clean container with no tito present. This is **the action used twice**, not a
+built-in mode — keeping the action a single-run primitive and the workflow in
+control of the composition:
+
+```yaml
+# Stage 1: tito generates the SRPM only
+- uses: abn/rpmbuilder/.github/actions/build@main
+  with:
+    sources-dir: ${{ github.workspace }}        # tito project root (.tito)
+    output-dir:  ${{ runner.temp }}/srpm
+    mode:        srpm-only
+
+# Stage 2: rebuild from that SRPM in a clean container (no tito)
+- id: rpm
+  uses: abn/rpmbuilder/.github/actions/build@main
+  with:
+    sources-dir: ${{ runner.temp }}/srpm
+    output-dir:  ${{ runner.temp }}/rpms
+    mode:        from-srpm
+```
+
+The reusable workflow
+[`rpm-build.yml`](../../workflows/rpm-build.yml) wires this up for you behind
+its `tito-two-stage: true` input.
 
 ## Inputs
 
@@ -69,20 +90,19 @@ An unrecognised `mode` fails the step early with a clear error.
 |:---------------|:--------:|:--------|:------------|
 | `image`        | no  | `quay.io/abn/rpmbuilder:fedora-latest` | Fully-qualified rpmbuilder image. Tag format `<distro>-<version>`, e.g. `rockylinux-9`. |
 | `sources-dir`  | **yes** | — | RPM sources on the runner: a dir with the `.spec` + sources, a tito project root (has `.tito`), or a dir of `.src.rpm` files when `mode: from-srpm`. |
-| `output-dir`   | no  | `${{ github.workspace }}/rpmbuild-output` | Where built binary RPMs (and SRPMs, except in `tito-two-stage`) are written. Created if absent. |
-| `mode`         | no  | `auto` | One of `auto`, `srpm-only`, `from-srpm`, `tito-rpm-only`, `tito-two-stage` (see above). |
+| `output-dir`   | no  | `${{ github.workspace }}/rpmbuild-output` | Where built RPMs and SRPMs are written. Created if absent. |
+| `mode`         | no  | `auto` | One of `auto`, `srpm-only`, `from-srpm`, `tito-one-shot` (see above). |
 | `arch`         | no  | `x86_64` | Target architecture (`x86_64`, `aarch64`, `noarch`, …). |
-| `rpm-lint`     | no  | `false` | Run `rpmlint` on each built binary package. A non-zero exit fails the step. In `tito-two-stage` this applies to the stage-2 RPMs. |
-| `ca-certs-dir` | no  | `''` | Host dir of `.crt` files injected into the container CA trust store before any build step. Applied to every container run. |
+| `rpm-lint`     | no  | `false` | Run `rpmlint` on each built binary package. A non-zero exit fails the step. |
+| `ca-certs-dir` | no  | `''` | Host dir of `.crt` files injected into the container CA trust store before any build step. |
 
 ## Outputs
 
 | Output       | Description |
 |:-------------|:------------|
-| `output-dir` | Absolute path to the directory of built binary RPMs (and SRPMs, except in `tito-two-stage`). |
-| `srpm-dir`   | Absolute path to the directory of intermediate SRPMs. Set only in `tito-two-stage` mode; empty string otherwise. |
+| `output-dir` | Absolute path to the directory of all built artifacts. |
 | `rpm-files`  | Newline-separated absolute paths of built binary RPMs (excludes SRPMs). Empty when `mode: srpm-only`. |
-| `srpm-files` | Newline-separated absolute paths of built/intermediate SRPMs. |
+| `srpm-files` | Newline-separated absolute paths of built SRPMs. |
 | `rpm-count`  | Number of binary RPMs produced. |
 | `srpm-count` | Number of SRPMs produced. |
 
@@ -92,7 +112,7 @@ artifact counts.
 
 ## Examples
 
-SRPM only (e.g. a manual stage 1):
+SRPM only:
 
 ```yaml
 - uses: abn/rpmbuilder/.github/actions/build@main
@@ -111,25 +131,13 @@ Rebuild from an existing SRPM, with lint:
     rpm-lint:    'true'
 ```
 
-Strict two-stage tito build, publishing binary RPMs and intermediate SRPMs
-separately:
+One-shot tito build:
 
 ```yaml
-- id: rpm
-  uses: abn/rpmbuilder/.github/actions/build@main
+- uses: abn/rpmbuilder/.github/actions/build@main
   with:
-    sources-dir: ${{ github.workspace }}      # tito project root (has .tito)
-    mode:        tito-two-stage
-
-- uses: actions/upload-artifact@v4
-  with:
-    name: rpms
-    path: ${{ steps.rpm.outputs.output-dir }}/**/*.rpm
-
-- uses: actions/upload-artifact@v4
-  with:
-    name: srpms
-    path: ${{ steps.rpm.outputs.srpm-dir }}/**/*.src.rpm
+    sources-dir: ${{ github.workspace }}      # tito project root (.tito)
+    mode:        tito-one-shot
 ```
 
 Build for `aarch64` against Rocky Linux 9 with a corporate CA:

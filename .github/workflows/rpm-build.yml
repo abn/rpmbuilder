@@ -107,10 +107,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # tito-two-stage selects the strict two-stage workflow; otherwise the
-      # action auto-detects spec vs tito and builds SRPM + RPM in one pass.
+      # Default: one pass, action auto-detects spec vs tito (SRPM + RPM).
       - name: Build RPMs
-        id: build
+        if: ${{ !inputs.tito-two-stage }}
         uses: abn/rpmbuilder/.github/actions/build@main
         with:
           image:       quay.io/abn/rpmbuilder:${{ matrix.image }}
@@ -118,7 +117,31 @@ jobs:
           output-dir:  ${{ runner.temp }}/rpmbuild-output
           arch:        ${{ inputs.arch }}
           rpm-lint:    ${{ inputs.rpm-lint }}
-          mode:        ${{ inputs.tito-two-stage && 'tito-two-stage' || 'auto' }}
+          mode:        auto
+
+      # Strict two-stage tito build = the action composed twice: generate the
+      # SRPM, then rebuild it in a clean container (no tito), so only declared
+      # BuildRequires can be satisfied.
+      - name: Build RPMs (two-stage — 1/2 generate SRPM)
+        if: ${{ inputs.tito-two-stage }}
+        uses: abn/rpmbuilder/.github/actions/build@main
+        with:
+          image:       quay.io/abn/rpmbuilder:${{ matrix.image }}
+          sources-dir: ${{ github.workspace }}/${{ inputs.sources-path }}
+          output-dir:  ${{ runner.temp }}/srpm
+          arch:        ${{ inputs.arch }}
+          mode:        srpm-only
+
+      - name: Build RPMs (two-stage — 2/2 rebuild from SRPM)
+        if: ${{ inputs.tito-two-stage }}
+        uses: abn/rpmbuilder/.github/actions/build@main
+        with:
+          image:       quay.io/abn/rpmbuilder:${{ matrix.image }}
+          sources-dir: ${{ runner.temp }}/srpm
+          output-dir:  ${{ runner.temp }}/rpmbuild-output
+          arch:        ${{ inputs.arch }}
+          rpm-lint:    ${{ inputs.rpm-lint }}
+          mode:        from-srpm
 
       # ── artifact upload ─────────────────────────────────────────────────
       - name: Upload RPM artifacts
@@ -131,7 +154,7 @@ jobs:
           retention-days: ${{ inputs.artifact-retention-days }}
           if-no-files-found: warn
 
-      # The intermediate SRPMs from stage 1 of the two-stage workflow are
+      # The intermediate SRPMs from stage 1 of the two-stage build are
       # uploaded separately so they can be inspected or re-used without
       # downloading the full binary RPM artifact.
       - name: Upload intermediate SRPMs (two-stage only)
@@ -139,6 +162,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: srpms-${{ matrix.image }}
-          path: ${{ steps.build.outputs.srpm-dir }}/**/*.src.rpm
+          path: ${{ runner.temp }}/srpm/**/*.src.rpm
           retention-days: ${{ inputs.artifact-retention-days }}
           if-no-files-found: warn

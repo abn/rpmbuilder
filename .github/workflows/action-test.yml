@@ -93,39 +93,57 @@ jobs:
           (( SRPM_COUNT > 0 )) || { echo "::error::spec build produced no SRPMs"; exit 1; }
 
       # ── one-shot tito via the build action ──────────────────────────────
-      - name: "build action — tito one-shot (mode: tito-rpm-only)"
+      - name: "build action — tito one-shot (mode: tito-one-shot)"
         id: tito_one
         uses: ./.github/actions/build
         with:
           image:       localhost/rpmbuilder:fedora-latest
           sources-dir: ${{ github.workspace }}/fixtures/tito
           output-dir:  ${{ runner.temp }}/out-tito-one
-          mode:        tito-rpm-only
+          mode:        tito-one-shot
 
-      - name: "build action — assert tito one-shot produced RPM, no SRPM"
+      # tito-one-shot is a single 'tito build --rpm'. tito emits the SRPM
+      # alongside the binary RPM (rpmbuilder.sh copies everything out), so the
+      # binary RPM is the meaningful assertion here.
+      - name: "build action — assert tito one-shot produced RPMs"
         env:
           RPM_COUNT:  ${{ steps.tito_one.outputs.rpm-count }}
           SRPM_COUNT: ${{ steps.tito_one.outputs.srpm-count }}
         run: |
           echo "tito one-shot → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
-          (( RPM_COUNT  > 0 ))  || { echo "::error::tito one-shot produced no binary RPMs"; exit 1; }
-          (( SRPM_COUNT == 0 )) || { echo "::error::tito-rpm-only must not emit an SRPM"; exit 1; }
+          (( RPM_COUNT > 0 )) || { echo "::error::tito one-shot produced no binary RPMs"; exit 1; }
 
-      # ── two-stage tito via the build action (mode: tito-two-stage) ──────
-      - name: "build action — tito two-stage (mode: tito-two-stage)"
-        id: tito_two
+      # ── strict two-stage = the action composed twice ────────────────────
+      # Stage 1: tito generates the SRPM only.
+      - name: "build action — two-stage 1/2 (mode: srpm-only)"
+        id: tito_s1
         uses: ./.github/actions/build
         with:
           image:       localhost/rpmbuilder:fedora-latest
           sources-dir: ${{ github.workspace }}/fixtures/tito
-          output-dir:  ${{ runner.temp }}/out-tito-two
-          mode:        tito-two-stage
+          output-dir:  ${{ runner.temp }}/out-2stage-srpm
+          mode:        srpm-only
 
-      - name: "build action — assert two-stage RPM rebuilt from stage-1 SRPM"
+      - name: "build action — assert stage 1 produced an SRPM"
         env:
-          RPM_COUNT:  ${{ steps.tito_two.outputs.rpm-count }}
-          SRPM_COUNT: ${{ steps.tito_two.outputs.srpm-count }}
+          SRPM_COUNT: ${{ steps.tito_s1.outputs.srpm-count }}
         run: |
-          echo "tito two-stage → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
-          (( RPM_COUNT  > 0 )) || { echo "::error::two-stage produced no binary RPMs"; exit 1; }
-          (( SRPM_COUNT > 0 )) || { echo "::error::two-stage produced no stage-1 SRPM"; exit 1; }
+          echo "two-stage 1/2 → ${SRPM_COUNT} SRPM(s)"
+          (( SRPM_COUNT > 0 )) || { echo "::error::stage 1 produced no SRPM"; exit 1; }
+
+      # Stage 2: rebuild from the stage-1 SRPM in a clean container (no tito).
+      - name: "build action — two-stage 2/2 (mode: from-srpm)"
+        id: tito_s2
+        uses: ./.github/actions/build
+        with:
+          image:       localhost/rpmbuilder:fedora-latest
+          sources-dir: ${{ runner.temp }}/out-2stage-srpm
+          output-dir:  ${{ runner.temp }}/out-2stage-rpm
+          mode:        from-srpm
+
+      - name: "build action — assert stage 2 rebuilt the RPM from the SRPM"
+        env:
+          RPM_COUNT: ${{ steps.tito_s2.outputs.rpm-count }}
+        run: |
+          echo "two-stage 2/2 → ${RPM_COUNT} RPM(s)"
+          (( RPM_COUNT > 0 )) || { echo "::error::stage 2 produced no binary RPMs"; exit 1; }

@@ -31,13 +31,15 @@ ${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
   [ "$status" -eq 0 ]
 }
 
-@test "tito one-shot RPM build skips SRPM stage" {
+@test "tito one-shot build (single tito --rpm) produces installable RPMs" {
+  # TITO_ONE_SHOT builds via a single 'tito build --rpm' invocation. tito
+  # still emits the SRPM alongside the RPM, so only the binary RPM is
+  # asserted. TITO_RPM_ONLY is the deprecated alias for TITO_ONE_SHOT.
   # shellcheck disable=SC2016
-  local assert='! compgen -G "${OUTPUT}/*.src.rpm" > /dev/null
-[ "$(ls -A ${OUTPUT})" ]
+  local assert='[ "$(ls -A ${OUTPUT})" ]
 ${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
 
-  run rpmbuilder_run -e OUTPUT_USER=1500 -e TITO_RPM_ONLY=1 \
+  run rpmbuilder_run -e OUTPUT_USER=1500 -e TITO_ONE_SHOT=1 \
     <<< "$(container_script "${CONTAINER_PREAMBLE}" "${TITO_CLONE_BUILD}" "${assert}")"
   [ "$status" -eq 0 ]
 }
