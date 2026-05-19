@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    # "/" makes Dependabot scan the whole repo for action references:
+    # .github/workflows/*.yml and the composite .github/actions/*/action.yml.
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      # One batched PR for all action version / commit-SHA bumps.
+      github-actions:
+        patterns:
+          - "*"
