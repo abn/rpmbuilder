@@ -2,17 +2,24 @@
 
 .PHONY: build test help
 
-TARGET_IMAGE ?= quay.io/abn/rpmbuilder:fedora-latest
+CONTAINER_CLI  ?= $(shell command -v podman >/dev/null 2>&1 && echo podman || echo docker)
+BASE_IMAGE     ?= fedora
+EXTRA_PACKAGES ?=
+TARGET_IMAGE   ?= quay.io/abn/rpmbuilder:fedora-latest
 
 ##@ Build
 
 build: ## Build the rpmbuilder container image
-	TARGET_IMAGE=$(TARGET_IMAGE) ./bin/build.sh
+	$(CONTAINER_CLI) build -f Containerfile \
+	  --build-arg BASE_IMAGE=$(BASE_IMAGE) \
+	  --build-arg EXTRA_PACKAGES=$(EXTRA_PACKAGES) \
+	  -t $(TARGET_IMAGE) .
 
 ##@ Test
 
 test: ## Run all tests in parallel
-	TARGET_IMAGE=$(TARGET_IMAGE) bats --jobs 2 --print-output-on-failure test/
+	CONTAINER_CLI=$(CONTAINER_CLI) TARGET_IMAGE=$(TARGET_IMAGE) \
+	  bats --jobs 2 --print-output-on-failure test/
 
 ##@ Utilities
 
