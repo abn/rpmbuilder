@@ -1,6 +1,5 @@
 [![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
 [![Quay Container](https://quay.io/repository/abn/rpmbuilder/status "Quay Container")](https://quay.io/repository/abn/rpmbuilder)
-[![Docker Pulls](https://img.shields.io/docker/pulls/alectolytic/rpmbuilder.svg)](https://hub.docker.com/r/alectolytic/rpmbuilder/)
 
 # RPM build containers for Red Hat based various distros
 
@@ -12,7 +11,7 @@ visiting [Quay Container Repository](https://quay.io/repository/abn/rpmbuilder?t
 ### Fetch image
 
 ```bash
-BUILDER_VERSION=centos-7
+BUILDER_VERSION=fedora-latest
 podman pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
@@ -88,21 +87,23 @@ podman run --rm -it --entrypoint bash \
     quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
-This command will drop you into a bash shell within the container. From here, you can execute `build` to build the spec
-file. You can also iteratively modify the specfile and re-run `build`.
+This command will drop you into a bash shell within the container. From here, you can execute `rpmbuilder` to build the spec
+file. You can also iteratively modify the specfile and re-run `rpmbuilder`.
 
 ## Configuration
 
 The following configurations are available via environment variables
 
-| Variable   | Description                                                                                      |
-|:-----------|:-------------------------------------------------------------------------------------------------|
-| SOURCES    | Configure source directory on the container file system                                          |
-| OUTPUT     | Configure output directory on the container file system                                          |
-| RPM_LINT   | If set, enables rpm linting once rpms are built                                                  |
-| ARCH       | Target architecture to build the rpm for, defaults to `x86_64`                                  |
-| SRPM_ONLY  | If set, only builds and outputs the SRPM; skips binary RPM build                                 |
-| FROM_SRPM  | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
+| Variable      | Description |
+|:-------------|:------------|
+| SOURCES       | Configure source directory on the container file system |
+| OUTPUT        | Configure output directory on the container file system |
+| OUTPUT_USER   | User or UID that built RPMs and SRPMs are owned by in the output directory; set to your host `$UID` to avoid root-owned files, defaults to the container build user |
+| RPM_LINT      | If set, enables rpm linting once rpms are built |
+| ARCH          | Target architecture to build the rpm for, defaults to `x86_64` |
+| SRPM_ONLY     | If set, only builds and outputs the SRPM; skips binary RPM build |
+| FROM_SRPM     | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
+| TITO_RPM_ONLY | For tito projects, if set, runs `tito build --rpm` directly and skips the intermediate SRPM step (no SRPM artifact is produced) |
 
 ## Volumes
 
