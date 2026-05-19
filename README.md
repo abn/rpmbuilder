@@ -205,3 +205,22 @@ podman run --rm -it \
     -e OUTPUT_USER=$UID \
     quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
+
+## Building the image locally
+
+`make build` builds the image from the committed `Containerfile`. The
+container runtime is auto-detected — podman if present, otherwise docker —
+and can be forced with `CONTAINER_CLI`:
+
+```bash
+# default: auto-detected runtime, Fedora base
+make build
+
+# a specific base image and tag
+BASE_IMAGE=rockylinux:9 TARGET_IMAGE=rpmbuilder:rocky-9 make build
+
+# force docker instead of the auto-detected podman
+CONTAINER_CLI=docker make build
+```
+
+`make test` runs the BATS suite against the built image.
