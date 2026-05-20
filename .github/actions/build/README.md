@@ -2,7 +2,7 @@
 
 Build RPMs and/or SRPMs with the [rpmbuilder](https://github.com/abn/rpmbuilder)
 container image in a **single container run**. A `mode` input selects the use
-case: spec/tito auto-detection, SRPM-only, rebuild-from-SRPM, or one-shot tito.
+case: spec/tito auto-detection, SRPM-only, or rebuild-from-SRPM.
 
 > This action is consumed by path reference, not from the GitHub Marketplace:
 >
@@ -47,7 +47,6 @@ before this action.
 | `auto`          | Detect spec vs tito from `sources-dir`; build SRPM + binary RPM |
 | `srpm-only`     | Stop after the SRPM; skip binary RPM compilation |
 | `from-srpm`     | Treat `sources-dir` as a directory of `.src.rpm` files; rebuild binary RPMs from them in a clean environment (no tito present) |
-| `tito-one-shot` | Tito project: build via a single `tito build --rpm` invocation instead of the default separate `tito --srpm` + `tito --rpm` steps. Faster; produces the **same** artifacts (the SRPM is still emitted alongside the binary RPM) |
 
 An unrecognised `mode` fails the step early with a clear error.
 
@@ -91,7 +90,7 @@ its `tito-two-stage: true` input.
 | `image`        | no  | `quay.io/abn/rpmbuilder:fedora-latest` | Fully-qualified rpmbuilder image. Tag format `<distro>-<version>`, e.g. `rockylinux-9`. |
 | `sources-dir`  | **yes** | — | RPM sources on the runner: a dir with the `.spec` + sources, a tito project root (has `.tito`), or a dir of `.src.rpm` files when `mode: from-srpm`. |
 | `output-dir`   | no  | `${{ github.workspace }}/rpmbuild-output` | Where built RPMs and SRPMs are written. Created if absent. |
-| `mode`         | no  | `auto` | One of `auto`, `srpm-only`, `from-srpm`, `tito-one-shot` (see above). |
+| `mode`         | no  | `auto` | One of `auto`, `srpm-only`, `from-srpm` (see above). |
 | `arch`         | no  | `x86_64` | Target architecture (`x86_64`, `aarch64`, `noarch`, …). |
 | `rpm-lint`     | no  | `false` | Run `rpmlint` on each built binary package. A non-zero exit fails the step. |
 | `ca-certs-dir` | no  | `''` | Host dir of `.crt` files injected into the container CA trust store before any build step. |
@@ -129,15 +128,6 @@ Rebuild from an existing SRPM, with lint:
     sources-dir: ${{ github.workspace }}/srpms
     mode:        from-srpm
     rpm-lint:    'true'
-```
-
-One-shot tito build:
-
-```yaml
-- uses: abn/rpmbuilder/.github/actions/build@main
-  with:
-    sources-dir: ${{ github.workspace }}      # tito project root (.tito)
-    mode:        tito-one-shot
 ```
 
 Build for `aarch64` against Rocky Linux 9 with a corporate CA:

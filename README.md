@@ -101,7 +101,7 @@ commit SHA instead of `@main` for reproducible builds.
 | Component | Reference | Use when |
 |:----------|:----------|:---------|
 | Reusable workflow | [`.github/workflows/rpm-build.yml`](.github/workflows/rpm-build.yml) | You want a turnkey matrix build (multiple images) + artifact upload |
-| `build` action | [`.github/actions/build`](.github/actions/build/README.md) | You need a single build step; the `mode` input selects the use case (`auto`, `srpm-only`, `from-srpm`, `tito-one-shot`) |
+| `build` action | [`.github/actions/build`](.github/actions/build/README.md) | You need a single build step; the `mode` input selects the use case (`auto`, `srpm-only`, `from-srpm`) |
 
 All actions run the image with **rootless podman** (installed via
 `redhat-actions/podman-install` when not preinstalled). For private
@@ -142,7 +142,7 @@ artifacts are uploaded as `rpms-<image>` (and `srpms-<image>` for two-stage).
 - uses: abn/rpmbuilder/.github/actions/build@main
   with:
     sources-dir: ${{ github.workspace }}/rpm
-    mode:        auto   # or: srpm-only | from-srpm | tito-one-shot
+    mode:        auto   # or: srpm-only | from-srpm
 ```
 
 The action is a single container run. A **strict two-stage tito build**
@@ -167,8 +167,8 @@ See the [`build` action README](.github/actions/build/README.md) for the
 full input/output reference, the `mode` table, and more examples. The action
 is exercised on every PR by
 [`.github/workflows/action-test.yml`](.github/workflows/action-test.yml),
-which builds the current image and validates the spec, one-shot tito, and
-two-stage (composed) paths against canonical fixtures.
+which builds the current image and validates the spec and two-stage
+(composed) tito paths against canonical fixtures.
 
 ## Configuration
 
@@ -183,7 +183,6 @@ The following configurations are available via environment variables
 | ARCH          | Target architecture to build the rpm for, defaults to `x86_64` |
 | SRPM_ONLY     | If set, only builds and outputs the SRPM; skips binary RPM build |
 | FROM_SRPM     | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
-| TITO_ONE_SHOT | For tito projects, if set, builds via a single `tito build --rpm` invocation instead of the default separate `tito --srpm` + `tito --rpm` steps. Faster; produces the same artifacts (the SRPM is still emitted alongside the RPM). The former name `TITO_RPM_ONLY` is deprecated but still honoured. |
 
 ## Volumes
 

@@ -12,11 +12,6 @@ ARCH=${ARCH:-x86_64}
 USER=${USER:-root}
 OUTPUT_USER=${OUTPUT_USER:-${USER}}
 
-# TITO_ONE_SHOT: build a tito project with a single `tito build --rpm`
-# invocation instead of the default separate `--srpm` + `--rpm` steps.
-# TITO_RPM_ONLY is the deprecated former name, still honoured.
-TITO_ONE_SHOT=${TITO_ONE_SHOT:-${TITO_RPM_ONLY:-}}
-
 RPM_BUILD_SOURCES=$(rpm  --eval '%{_sourcedir}')
 RPM_BUILD_RPMS=$(rpm --eval '%{_rpmdir}')
 RPM_BUILD_SRPMS=$(rpm --eval '%{_srcrpmdir}')
@@ -133,13 +128,9 @@ function build-from-tito() {
   local TITO_OUTPUT=$(mktemp -d)
   
   pushd "${SOURCES}" >/dev/null
-  if [[ -n "${TITO_ONE_SHOT}" ]]; then
+  tito build --test --srpm --output="${TITO_OUTPUT}"
+  if [[ -z "${SRPM_ONLY}" ]]; then
     tito build --test --rpm --output="${TITO_OUTPUT}"
-  else
-    tito build --test --srpm --output="${TITO_OUTPUT}"
-    if [[ -z "${SRPM_ONLY}" ]]; then
-      tito build --test --rpm --output="${TITO_OUTPUT}"
-    fi
   fi
   popd >/dev/null
 

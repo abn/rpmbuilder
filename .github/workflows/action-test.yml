@@ -76,27 +76,6 @@ jobs:
           (( RPM_COUNT  > 0 )) || { echo "::error::spec build produced no binary RPMs"; exit 1; }
           (( SRPM_COUNT > 0 )) || { echo "::error::spec build produced no SRPMs"; exit 1; }
 
-      # ── one-shot tito via the build action ──────────────────────────────
-      - name: "build action — tito one-shot (mode: tito-one-shot)"
-        id: tito_one
-        uses: ./.github/actions/build
-        with:
-          image:       localhost/rpmbuilder:fedora-latest
-          sources-dir: ${{ github.workspace }}/fixtures/tito
-          output-dir:  ${{ runner.temp }}/out-tito-one
-          mode:        tito-one-shot
-
-      # tito-one-shot is a single 'tito build --rpm'. tito emits the SRPM
-      # alongside the binary RPM (rpmbuilder.sh copies everything out), so the
-      # binary RPM is the meaningful assertion here.
-      - name: "build action — assert tito one-shot produced RPMs"
-        env:
-          RPM_COUNT:  ${{ steps.tito_one.outputs.rpm-count }}
-          SRPM_COUNT: ${{ steps.tito_one.outputs.srpm-count }}
-        run: |
-          echo "tito one-shot → ${RPM_COUNT} RPM(s), ${SRPM_COUNT} SRPM(s)"
-          (( RPM_COUNT > 0 )) || { echo "::error::tito one-shot produced no binary RPMs"; exit 1; }
-
       # ── strict two-stage = the action composed twice ────────────────────
       # Stage 1: tito generates the SRPM only.
       - name: "build action — two-stage 1/2 (mode: srpm-only)"

@@ -2,7 +2,7 @@ name: Build RPM
 description: >-
   Build RPMs and/or SRPMs using the rpmbuilder container image in a single
   container run. A mode input selects the use case: auto-detected spec/tito
-  builds, SRPM-only, rebuild-from-SRPM, or one-shot tito.
+  builds, SRPM-only, or rebuild-from-SRPM.
 
 branding:
   icon: package
@@ -39,11 +39,6 @@ inputs:
         - srpm-only     stop after the SRPM, skip binary RPM compilation
         - from-srpm     treat sources-dir as .src.rpm files; rebuild in a
                         clean environment (no tito present)
-        - tito-one-shot tito projects: build via a single 'tito build --rpm'
-                        invocation instead of the default separate
-                        'tito --srpm' + 'tito --rpm' steps. Faster; produces
-                        the same artifacts (the SRPM is still emitted
-                        alongside the binary RPM).
 
       For a strict two-stage tito build (generate the SRPM, then rebuild it
       in a clean environment so only declared BuildRequires are satisfied),
@@ -125,9 +120,9 @@ runs:
         OUTPUT_DIR: ${{ inputs.output-dir }}
       run: |
         case "${MODE}" in
-          auto|srpm-only|from-srpm|tito-one-shot) ;;
+          auto|srpm-only|from-srpm) ;;
           *)
-            echo "::error title=Invalid mode::'${MODE}' is not valid (expected: auto, srpm-only, from-srpm, tito-one-shot)"
+            echo "::error title=Invalid mode::'${MODE}' is not valid (expected: auto, srpm-only, from-srpm)"
             exit 1
             ;;
         esac
@@ -159,7 +154,6 @@ runs:
         case "${MODE}" in
           srpm-only)     CONTAINER_ARGS+=(--env SRPM_ONLY=1) ;;
           from-srpm)     CONTAINER_ARGS+=(--env FROM_SRPM=1) ;;
-          tito-one-shot) CONTAINER_ARGS+=(--env TITO_ONE_SHOT=1) ;;
           auto)          : ;;
         esac
         ${CONTAINER_CLI} run "${CONTAINER_ARGS[@]}" "${IMAGE}"
@@ -178,7 +172,6 @@ runs:
         # ── mode label ──────────────────────────────────────────────────────
         case "${MODE}" in
           from-srpm)     MODE_LABEL="Rebuild from SRPM" ;;
-          tito-one-shot) MODE_LABEL="Tito — one-shot (single tito --rpm)" ;;
           srpm-only)
             [[ -d "${SOURCES_DIR}/.tito" ]] \
               && MODE_LABEL="Tito — SRPM only" \
