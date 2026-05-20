@@ -27,11 +27,11 @@ jobs:
 
     steps:
       - name: Checkout rpmbuilder
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # Plain spec project. Shallow checkout is fine — no git history is used.
       - name: Checkout spec fixture (abn/hello-rpm)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: abn/hello-rpm
           path: fixtures/spec
@@ -39,7 +39,7 @@ jobs:
       # Tito builds version off the git tree, so fetch full history + tags
       # (mirrors the full `git clone` the BATS tito tests perform).
       - name: Checkout tito fixture (abn/hello-rpm-tito)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: abn/hello-rpm-tito
           path: fixtures/tito

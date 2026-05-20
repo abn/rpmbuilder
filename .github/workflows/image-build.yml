@@ -30,7 +30,7 @@ jobs:
           - distro: rockylinux
             version: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Resolve container runtime
         run: |
           CLI=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
