@@ -33,6 +33,12 @@ else
     ${PACKAGE_MANAGER} -y install "epel-release"
   fi
 
+  if [[ "${PACKAGE_MANAGER}" == "dnf" ]]; then
+    ${PACKAGE_MANAGER} config-manager setopt fedora-cisco-openh264.enabled=0 2>/dev/null \
+      || ${PACKAGE_MANAGER} config-manager --set-disabled fedora-cisco-openh264 2>/dev/null \
+      || true
+  fi
+
   ${PACKAGE_MANAGER} -y update
 
   if [[ "${PACKAGE_MANAGER}" == "dnf" ]]; then

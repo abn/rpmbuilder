@@ -142,7 +142,8 @@ function build-from-tito() {
     if [[ -n "${ZYPPER}" ]]; then
       if ! "${SUDO_CMD[@]}" zypper --non-interactive install --no-recommends tito; then
         "${SUDO_CMD[@]}" zypper --non-interactive install --no-recommends python3 python3-pip python3-setuptools python3-curses
-        python3 -m pip install tito
+        "${SUDO_CMD[@]}" python3 -m pip install --break-system-packages tito 2>/dev/null \
+          || "${SUDO_CMD[@]}" python3 -m pip install tito
       fi
     elif { [[ -n "${DNF}" ]] && "${SUDO_CMD[@]}" dnf install -y tito; } \
         || "${SUDO_CMD[@]}" yum install -y tito; then
@@ -151,7 +152,8 @@ function build-from-tito() {
       local PKG_MGR; [[ -n "${DNF}" ]] && PKG_MGR=dnf || PKG_MGR=yum
       "${SUDO_CMD[@]}" "${PKG_MGR}" install -y python3 python3-setuptools
       python3 -m ensurepip
-      python3 -m pip install tito
+      "${SUDO_CMD[@]}" python3 -m pip install --break-system-packages tito 2>/dev/null \
+        || "${SUDO_CMD[@]}" python3 -m pip install tito
     fi
   fi
 
