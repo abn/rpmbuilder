@@ -9,7 +9,7 @@ shopt -s globstar extglob nullglob
 
 SOURCES=${1:-${SOURCES:-$PWD}}
 OUTPUT=${OUTPUT:-${SOURCES}/.rpmbuild}
-ARCH=${ARCH:-x86_64}
+ARCH=${ARCH:-$(uname -m)}
 USER=${USER:-root}
 OUTPUT_USER=${OUTPUT_USER:-${USER}}
 

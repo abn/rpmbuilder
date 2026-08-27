@@ -9,8 +9,105 @@ on:
 
 jobs:
   build:
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    name: ${{ matrix.distro }}:${{ matrix.version }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        distro: [fedora, rockylinux]
+        version: [latest]
+        include:
+          - arch: amd64
+            distro: fedora
+            version: 43
+          - arch: arm64
+            distro: fedora
+            version: 43
+          - arch: amd64
+            distro: fedora
+            version: 44
+          - arch: arm64
+            distro: fedora
+            version: 44
+          - arch: amd64
+            distro: fedora
+            version: rawhide
+          - arch: arm64
+            distro: fedora
+            version: rawhide
+          - arch: amd64
+            distro: rockylinux
+            version: 9
+          - arch: arm64
+            distro: rockylinux
+            version: 9
+          - arch: amd64
+            distro: rockylinux
+            version: 10
+          - arch: arm64
+            distro: rockylinux
+            version: 10
+          - arch: amd64
+            distro: opensuse-leap
+            version: 15.6
+            base_image: opensuse/leap:15.6
+          - arch: arm64
+            distro: opensuse-leap
+            version: 15.6
+            base_image: opensuse/leap:15.6
+          - arch: amd64
+            distro: opensuse-leap
+            version: latest
+            base_image: opensuse/leap:latest
+          - arch: arm64
+            distro: opensuse-leap
+            version: latest
+            base_image: opensuse/leap:latest
+          - arch: amd64
+            distro: opensuse-tumbleweed
+            version: latest
+            base_image: opensuse/tumbleweed:latest
+          - arch: arm64
+            distro: opensuse-tumbleweed
+            version: latest
+            base_image: opensuse/tumbleweed:latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build Image
+        env:
+          CONTAINER_CLI: podman
+          BASE_IMAGE: ${{ matrix.base_image || format('quay.io/{0}/{0}:{1}', matrix.distro, matrix.version) }}
+          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
+        run: make build
+      - name: Setup Bats
+        uses: bats-core/bats-action@4.0.0
+        with:
+          support-install: false
+          assert-install: false
+          detik-install: false
+          file-install: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test
+        env:
+          CONTAINER_CLI: podman
+          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
+        run: make test
+      - name: Publish Arch Image (quay.io)
+        if: github.ref == 'refs/heads/main'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: rpmbuilder
+          tags: ${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
+          registry: quay.io/abn
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+  manifest:
+    name: Push Multi-Arch Manifests (${{ matrix.distro }}:${{ matrix.version }})
+    needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    name: ${{ matrix.distro }}:${{ matrix.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -29,45 +126,22 @@ jobs:
             version: 10
           - distro: opensuse-leap
             version: 15.6
-            base_image: opensuse/leap:15.6
           - distro: opensuse-leap
             version: latest
-            base_image: opensuse/leap:latest
           - distro: opensuse-tumbleweed
             version: latest
-            base_image: opensuse/tumbleweed:latest
     steps:
-      - uses: actions/checkout@v5
-      - name: Resolve container runtime
+      - name: Log in to Quay.io
         run: |
-          CLI=$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)
-          echo "CONTAINER_CLI=${CLI}" >> "$GITHUB_ENV"
-          echo "::notice::Using ${CLI} ($(${CLI} --version))"
-      - name: Build Image
+          podman login -u "${{ secrets.QUAY_USER }}" -p "${{ secrets.QUAY_TOKEN }}" quay.io
+      - name: Create and Push Multi-Arch Manifest List
         env:
-          BASE_IMAGE: ${{ matrix.base_image || format('quay.io/{0}/{0}:{1}', matrix.distro, matrix.version) }}
-          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: make build
-      - name: Setup Bats
-        uses: bats-core/bats-action@4.0.0
-        with:
-          support-install: false
-          assert-install: false
-          detik-install: false
-          file-install: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Test
-        env:
-          TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
-        run: make test
-      - name: Publish Image (quay.io)
-        if: github.ref == 'refs/heads/main'
-        env:
-          IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
           REGISTRY: quay.io/abn
-          REGISTRY_USER: ${{ secrets.QUAY_USER }}
-          REGISTRY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          DISTRO: ${{ matrix.distro }}
+          VERSION: ${{ matrix.version }}
         run: |
-          ${CONTAINER_CLI} tag ${IMAGE} ${REGISTRY}/${IMAGE}
-          ${CONTAINER_CLI} login -u "${REGISTRY_USER}" -p "${REGISTRY_TOKEN}" quay.io
-          ${CONTAINER_CLI} push ${REGISTRY}/${IMAGE}
+          MANIFEST_TAG="${REGISTRY}/rpmbuilder:${DISTRO}-${VERSION}"
+          podman manifest create "${MANIFEST_TAG}"
+          podman manifest add "${MANIFEST_TAG}" "${MANIFEST_TAG}-amd64"
+          podman manifest add "${MANIFEST_TAG}" "${MANIFEST_TAG}-arm64"
+          podman manifest push "${MANIFEST_TAG}"
