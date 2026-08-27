@@ -94,6 +94,8 @@ its `tito-two-stage: true` input.
 | `arch`         | no  | `x86_64` | Target architecture (`x86_64`, `aarch64`, `noarch`, …). |
 | `rpm-lint`     | no  | `false` | Run `rpmlint` on each built binary package. A non-zero exit fails the step. |
 | `ca-certs-dir` | no  | `''` | Host dir of `.crt` files injected into the container CA trust store before any build step. |
+| `copr-repos`   | no  | `''` | Space- or newline-separated list of Fedora COPR repositories to enable dynamically. |
+| `repos`        | no  | `''` | Space- or newline-separated list of custom repository URLs or .repo files to enable. |
 
 ## Outputs
 
@@ -128,6 +130,15 @@ Rebuild from an existing SRPM, with lint:
     sources-dir: ${{ github.workspace }}/srpms
     mode:        from-srpm
     rpm-lint:    'true'
+```
+
+Build with an external COPR repository:
+
+```yaml
+- uses: abn/rpmbuilder/.github/actions/build@main
+  with:
+    sources-dir: ${{ github.workspace }}/rpm
+    copr-repos:  "@fedora-llvm-team/llvm-snapshots"
 ```
 
 Build for `aarch64` against Rocky Linux 9 with a corporate CA:

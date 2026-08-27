@@ -1,7 +1,7 @@
 [![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
 [![Quay Container](https://quay.io/repository/abn/rpmbuilder/status "Quay Container")](https://quay.io/repository/abn/rpmbuilder)
 
-# RPM build containers for Red Hat based various distros
+# RPM build containers for Red Hat and openSUSE distributions
 
 ### Available versions
 
@@ -151,7 +151,7 @@ jobs:
 
 Workflow inputs: `sources-path` (required), `images` (JSON array of tag
 suffixes, default `["fedora-latest","rockylinux-9"]`), `tito-two-stage`,
-`arch`, `rpm-lint`, `upload-artifacts`, `artifact-retention-days`. Built
+`arch`, `rpm-lint`, `copr-repos`, `repos`, `upload-artifacts`, `artifact-retention-days`. Built
 artifacts are uploaded as `rpms-<image>` (and `srpms-<image>` for two-stage).
 
 ### Composite action (single step)
@@ -201,6 +201,9 @@ The following configurations are available via environment variables
 | ARCH          | Target architecture to build the rpm for, defaults to `x86_64` |
 | SRPM_ONLY     | If set, only builds and outputs the SRPM; skips binary RPM build |
 | FROM_SRPM     | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
+| COPR_REPOS    | Space- or comma-separated list of Fedora COPR repositories to enable dynamically |
+| REPOS         | Space- or comma-separated list of custom repository URLs to enable |
+| DEBUG / VERBOSE | If set, enables bash verbose trace (`set -x`) execution |
 
 ## Volumes
 
@@ -210,7 +213,8 @@ The following volumes can be mounted from the host.
 |:----------------------------------------|:-----------------------------------------------------------------|
 | /sources                                | Source to build RPM from                                         |
 | /output                                 | Output directory where all built RPMs and SRPMs are extracted to |
-| /etc/pki/ca-trust/source/anchors        | (optional) Directory of `.crt` files to add to the CA trust store before building |
+| /etc/pki/ca-trust/source/anchors        | (optional) Directory of `.crt` files to add to the CA trust store (RHEL/Fedora) |
+| /etc/pki/trust/anchors                  | (optional) Directory of `.crt` files to add to the CA trust store (openSUSE) |
 
 To inject corporate or self-signed CA certificates, mount a directory containing `.crt` files and the trust store will be updated automatically before any build steps run:
 
