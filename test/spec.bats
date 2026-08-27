@@ -17,9 +17,14 @@ ${PKG_INSTALL} ${OUTPUT}/!(*.src).rpm'
   # shellcheck disable=SC2016
   local spec_commands='curl --silent --output "${SOURCES}/hello.spec" https://raw.githubusercontent.com/abn/hello-rpm/master/hello.spec
 /usr/bin/rpmbuilder
-[ "$(ls -A ${OUTPUT})" ]'
+[ "$(ls -A ${OUTPUT})" ]
+if [ -d /etc/yum.repos.d ]; then
+  ls /etc/yum.repos.d/*.repo
+elif [ -d /etc/zypp/repos.d ]; then
+  ls /etc/zypp/repos.d/*.repo
+fi'
 
-  run rpmbuilder_run -e REPOS="https://raw.githubusercontent.com/abn/hello-rpm/master" -e OUTPUT_USER=1500 <<< "$(container_script "${CONTAINER_PREAMBLE}" "${spec_commands}")"
+  run rpmbuilder_run -e REPOS="http://example.com/custom.repo" -e OUTPUT_USER=1500 <<< "$(container_script "${CONTAINER_PREAMBLE}" "${spec_commands}")"
   [ "$status" -eq 0 ]
 }
 
