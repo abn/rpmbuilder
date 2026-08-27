@@ -13,13 +13,13 @@ ${PKG_INSTALL} ${OUTPUT}/!(*.src).rpm'
   [ "$status" -eq 0 ]
 }
 
-@test "dynamically enables copr repository via COPR_REPOS" {
+@test "dynamically enables repository via REPOS" {
   # shellcheck disable=SC2016
   local spec_commands='curl --silent --output "${SOURCES}/hello.spec" https://raw.githubusercontent.com/abn/hello-rpm/master/hello.spec
 /usr/bin/rpmbuilder
 [ "$(ls -A ${OUTPUT})" ]'
 
-  run rpmbuilder_run -e COPR_REPOS="@fedora-llvm-team/llvm-snapshots" -e OUTPUT_USER=1500 <<< "$(container_script "${CONTAINER_PREAMBLE}" "${spec_commands}")"
+  run rpmbuilder_run -e REPOS="https://raw.githubusercontent.com/abn/hello-rpm/master" -e OUTPUT_USER=1500 <<< "$(container_script "${CONTAINER_PREAMBLE}" "${spec_commands}")"
   [ "$status" -eq 0 ]
 }
 
