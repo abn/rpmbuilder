@@ -50,8 +50,7 @@ before this action.
 
 An unrecognised `mode` fails the step early with a clear error.
 
-> tito is available via EPEL on Fedora and EL 8/9 but not on EL 10
-> (e.g. Rocky Linux 10).
+> **Note:** `tito` is available natively in Fedora and via EPEL on EL 9. On distributions where native packages are not available (such as EL 10 or openSUSE), `rpmbuilder` automatically provisions `tito` via pip.
 
 ### Strict two-stage tito builds (composition, not a mode)
 
