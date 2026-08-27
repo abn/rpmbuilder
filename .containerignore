@@ -1,0 +1,11 @@
+# Default deny: ignore everything
+*
+
+# Allowlist: only files needed to build the container image
+!bin
+!bin/**
+!rpmbuilder.sh
+!Containerfile
+!Makefile
+!LICENSE
+!README.md

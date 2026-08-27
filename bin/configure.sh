@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-set -exo pipefail
+set -eo pipefail
+[[ -n "${DEBUG:-}" || -n "${VERBOSE:-}" ]] && set -x
 
 if command -v zypper >/dev/null 2>&1; then
   PACKAGE_MANAGER="zypper"

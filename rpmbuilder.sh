@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # use exit codes of failing commands
-set -exo pipefail
+set -eo pipefail
+[[ -n "${DEBUG:-}" || -n "${VERBOSE:-}" ]] && set -x
 
 # enable bash options
 shopt -s globstar extglob nullglob
@@ -43,6 +44,19 @@ for dir in "${CA_ANCHORS_DIRS[@]}"; do
     break
   fi
 done
+
+function publish_artifact() {
+  local rpmFile=$1
+  if [[ -n "${RPM_LINT}" ]]; then
+    rpmlint --verbose --info "$rpmFile"
+  fi
+
+  local install_opts=(--target-directory "${OUTPUT}")
+  if [[ $EUID -eq 0 ]] && [[ -n "${OUTPUT_USER}" ]]; then
+    install_opts+=(--owner "${OUTPUT_USER}" --group "${OUTPUT_USER}")
+  fi
+  install "${install_opts[@]}" "$rpmFile"
+}
 
 function install-builddep() {
   local targetFile=$1
@@ -91,19 +105,9 @@ function build-from-spec() {
   for prefix in "${prefixes[@]}"; do
     # make use of globstar to find all rpms with the required prefix
     for rpm in "${RPM_BUILD_SRPMS}"/"${prefix}"*.rpm "${RPM_BUILD_RPMS}"/**/"${prefix}"*.rpm; do
-      if  [[ -n "${RPM_LINT}" ]]; then
-        # lint was requested
-        rpmlint --verbose --info "$rpm"
-      fi
-
-      # copy over rpm to output directory with correct ownership
-      install \
-        --owner "${OUTPUT_USER}" --group "${OUTPUT_USER}" \
-        --target-directory "${OUTPUT}" \
-        "$rpm"
+      [[ -f "$rpm" ]] && publish_artifact "$rpm"
     done
   done
-
 }
 
 function rebuild-from-srpm() {
@@ -122,13 +126,7 @@ function rebuild-from-srpm() {
     prefix=$(rpm -qp --queryformat '%{name}-%{version}-%{release}' "$srpm")
 
     for rpm in "${RPM_BUILD_SRPMS}/${prefix}"*.rpm "${RPM_BUILD_RPMS}"/**/"${prefix}"*.rpm; do
-      if [[ -n "${RPM_LINT}" ]]; then
-        rpmlint --verbose --info "$rpm"
-      fi
-      install \
-        --owner "${OUTPUT_USER}" --group "${OUTPUT_USER}" \
-        --target-directory "${OUTPUT}" \
-        "$rpm"
+      [[ -f "$rpm" ]] && publish_artifact "$rpm"
     done
   done
 }
@@ -169,26 +167,23 @@ function build-from-tito() {
 
   # copy over rpm to output directory with correct ownership
   for rpm in "${TITO_OUTPUT}"/**/*.rpm; do
-    if [[ -n "${RPM_LINT}" ]]; then
-      rpmlint --verbose --info "$rpm"
-    fi
-    install \
-      --owner "${OUTPUT_USER}" --group "${OUTPUT_USER}" \
-      --target-directory "${OUTPUT}" \
-      "$rpm"
+    [[ -f "$rpm" ]] && publish_artifact "$rpm"
   done
 }
 
-sourceFiles=("${SOURCES}"/!(*.spec))
-specFiles=("${SOURCES}"/*.spec)
-
-# copy any non spec files to sources directory
-for src in "${sourceFiles[@]}"; do
+# copy non-spec source files, excluding output dirs, hidden files, and spec files
+for src in "${SOURCES}"/*; do
+  [[ ! -e "$src" ]] && continue
+  [[ "$src" == *.spec ]] && continue
+  [[ "$src" == "${OUTPUT}" ]] && continue
+  [[ "$(basename "$src")" == .rpmbuild ]] && continue
   cp -R -t "${RPM_BUILD_SOURCES}" "$src"
 done
 
 # set required permissions
 chown -R "${USER}:${USER}" "${RPM_BUILD_SOURCES}"
+
+specFiles=("${SOURCES}"/*.spec)
 
 # install build requires and fetch sources for all spec files
 for specFile in "${specFiles[@]}"; do
