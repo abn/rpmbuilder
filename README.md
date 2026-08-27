@@ -1,222 +1,113 @@
+# rpmbuilder
+
 [![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
 [![Quay Container](https://quay.io/repository/abn/rpmbuilder/status "Quay Container")](https://quay.io/repository/abn/rpmbuilder)
 
-# RPM build containers for Red Hat and openSUSE distributions
+Clean, containerized RPM and SRPM build environments for Red Hat and openSUSE distributions. Builds spec files, fetches remote sources via spectool, auto-resolves package build dependencies, and supports tito release workflows.
 
-### Available versions
+---
 
-Available versions can be located by
-visiting [Quay Container Repository](https://quay.io/repository/abn/rpmbuilder?tab=tags).
+## Supported Distributions & Tags
 
-### Fetch image
+Container images are published to [`quay.io/abn/rpmbuilder`](https://quay.io/repository/abn/rpmbuilder?tab=tags):
 
+| Distribution | Version / Stream | Image Tag |
+|:-------------|:-----------------|:----------|
+| **Fedora** | Latest stable | `quay.io/abn/rpmbuilder:fedora-latest` |
+| **Fedora** | 44 | `quay.io/abn/rpmbuilder:fedora-44` |
+| **Fedora** | 43 | `quay.io/abn/rpmbuilder:fedora-43` |
+| **Fedora** | Rawhide (development) | `quay.io/abn/rpmbuilder:fedora-rawhide` |
+| **Rocky Linux** | 10 | `quay.io/abn/rpmbuilder:rockylinux-10` |
+| **Rocky Linux** | 9 / Latest | `quay.io/abn/rpmbuilder:rockylinux-9` (or `rockylinux-latest`) |
+| **openSUSE Leap** | 15.6 / Latest | `quay.io/abn/rpmbuilder:opensuse-leap-15.6` (or `opensuse-leap-latest`) |
+| **openSUSE Tumbleweed** | Rolling / Latest | `quay.io/abn/rpmbuilder:opensuse-tumbleweed-latest` |
+
+---
+
+## Quickstart & Common Recipes
+
+Set your source and output directories:
 ```bash
-BUILDER_VERSION=fedora-latest
-podman pull quay.io/abn/rpmbuilder:${BUILDER_VERSION}
-```
-
-### Run
-
-In this example `SOURCE_DIR` contains spec file and sources for the the RPM we are building.
-
-```bash
-# set env variables for convenience
 SOURCE_DIR=$(pwd)/sources
 OUTPUT_DIR=$(pwd)/output
-
-# create a output directory
-mkdir -p ${OUTPUT_DIR}
-
-# build rpm
-podman run --rm -it \
-    -v ${SOURCE_DIR}:/sources:z \
-    -v ${OUTPUT_DIR}:/output:z \
-    -e OUTPUT_USER=$UID \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+mkdir -p "${OUTPUT_DIR}"
 ```
 
-The output files will be available in `OUTPUT_DIR`.
-
-### Tito projects
-
-For projects managed by [tito](https://github.com/rpm-software-management/tito), use the same image as for spec-based builds. The image detects the presence of a `.tito` directory and automatically installs tito at runtime before building with `tito build --test`:
+### 1. Standard Spec File Build
+Builds all `.spec` files in `SOURCE_DIR`, automatically downloads remote `SourceX` archives, installs `BuildRequires`, and outputs both SRPMs and binary RPMs:
 
 ```bash
 podman run --rm -it \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     -e OUTPUT_USER=$UID \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:fedora-latest
 ```
 
-> **Note:** tito is available via EPEL on Fedora and EL 9 but is not yet available on EL 10 (e.g. Rocky Linux 10).
-
-#### Two-stage tito workflow (strict dependency isolation)
-
-Because tito and its dependencies are installed into the build environment at runtime, they could inadvertently satisfy undeclared `BuildRequires` in a spec file. To ensure only explicitly declared dependencies are used, run the build in two stages: generate the SRPM with tito in the first run, then rebuild the RPM from that SRPM in a second clean run without tito present.
+### 2. Tito Projects (Single Step)
+If `SOURCE_DIR` contains a `.tito` project directory, `rpmbuilder` automatically provisions tito at runtime and runs `tito build --test`:
 
 ```bash
-# Stage 1: generate SRPM using tito
+podman run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
+    quay.io/abn/rpmbuilder:fedora-latest
+```
+
+### 3. Strict Two-Stage Tito Build (Dependency Isolation)
+Because tito installs runtime dependencies into the container, they could inadvertently satisfy undeclared `BuildRequires` in a spec file. For strict isolation, run the build in two stages:
+
+```bash
+# Stage 1: Generate the SRPM only
 podman run --rm -it \
     -v ${SOURCE_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     -e OUTPUT_USER=$UID \
     -e SRPM_ONLY=1 \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:fedora-latest
 
-# Stage 2: rebuild RPM from SRPM in a clean environment (no tito)
+# Stage 2: Rebuild binary RPMs from that SRPM in a clean environment (no tito)
 podman run --rm -it \
     -v ${OUTPUT_DIR}:/sources:z \
     -v ${OUTPUT_DIR}:/output:z \
     -e OUTPUT_USER=$UID \
     -e FROM_SRPM=1 \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:fedora-latest
 ```
 
-The `FROM_SRPM=1` flag is required and intentional — it prevents the image from accidentally entering SRPM rebuild mode due to leftover `.src.rpm` files in the output directory.
+### 4. Rebuilding from an Existing SRPM
+To rebuild binary RPMs from existing `.src.rpm` files:
 
-### Enabling COPR and Custom Repositories
+```bash
+podman run --rm -it \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    -e OUTPUT_USER=$UID \
+    -e FROM_SRPM=1 \
+    quay.io/abn/rpmbuilder:fedora-latest
+```
 
-You can dynamically enable external Fedora COPR repositories or custom package repositories before dependencies are installed and builds begin:
+### 5. Enabling COPR & Custom Repositories
+Dynamically enable Fedora COPR repositories or custom package repositories before build dependencies are installed:
 
 - **Via Environment Variables:**
   ```bash
   podman run --rm -it \
       -v ${SOURCE_DIR}:/sources:z \
       -v ${OUTPUT_DIR}:/output:z \
-      -e COPR_REPOS="@fedora-llvm-team/llvm-snapshots user/my-copr" \
+      -e OUTPUT_USER=$UID \
+      -e COPR_REPOS="@fedora-llvm-team/llvm-snapshots user/my-repo" \
       -e REPOS="https://example.com/custom.repo" \
-      quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+      quay.io/abn/rpmbuilder:fedora-latest
   ```
-- **Via Configuration Files:**
-  - `${SOURCES}/.copr`: Plain text file containing one COPR repository (`user/project` or `@group/project`) per line.
-  - `${SOURCES}/.repos`: Plain text file containing repository URLs (one per line).
-  - `${SOURCES}/.repos/*.repo`: Drop-in `.repo` files automatically copied to the system repository directory.
+- **Via Configuration Files in `${SOURCE_DIR}`:**
+  - `${SOURCE_DIR}/.copr`: Plain text file listing COPR repos (one per line, `#` comments ignored).
+  - `${SOURCE_DIR}/.repos`: Plain text file listing repository URLs (one per line).
+  - `${SOURCE_DIR}/.repos/*.repo`: Drop-in `.repo` files automatically copied to the system repository directory.
 
-### Debugging
-
-If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by
-using the following command.
-
-```bash
-podman run --rm -it --entrypoint bash \
-    -v ${SOURCE_DIR}:/sources:z \
-    -v ${OUTPUT_DIR}:/output:z \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
-```
-
-This command will drop you into a bash shell within the container. From here, you can execute `rpmbuilder` to build the spec
-file. You can also iteratively modify the specfile and re-run `rpmbuilder`.
-
-## GitHub Actions
-
-rpmbuilder ships ready-to-use GitHub Actions so you can build RPMs/SRPMs in
-CI without writing container plumbing. They are **consumed by path
-reference** (this project publishes a container image, not a Marketplace
-action), so reference them as `abn/rpmbuilder/...@<ref>`. Pin to a tag or
-commit SHA instead of `@main` for reproducible builds.
-
-| Component | Reference | Use when |
-|:----------|:----------|:---------|
-| Reusable workflow | [`.github/workflows/rpm-build.yml`](.github/workflows/rpm-build.yml) | You want a turnkey matrix build (multiple images) + artifact upload |
-| `build` action | [`.github/actions/build`](.github/actions/build/README.md) | You need a single build step; the `mode` input selects the use case (`auto`, `srpm-only`, `from-srpm`) |
-
-All actions run the image with **rootless podman** (installed via
-`redhat-actions/podman-install` when not preinstalled). For private
-registries, call `redhat-actions/podman-login` before them.
-
-### Reusable workflow (fastest path)
-
-Spec-file project, default image matrix:
-
-```yaml
-jobs:
-  rpm:
-    uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
-    with:
-      sources-path: rpm
-```
-
-Tito project with strict two-stage isolation across several images:
-
-```yaml
-jobs:
-  rpm:
-    uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
-    with:
-      sources-path:   .
-      tito-two-stage: true
-      images: '["fedora-44","fedora-rawhide","rockylinux-9"]'
-```
-
-Workflow inputs: `sources-path` (required), `images` (JSON array of tag
-suffixes, default `["fedora-latest","rockylinux-9"]`), `tito-two-stage`,
-`arch`, `rpm-lint`, `copr-repos`, `repos`, `upload-artifacts`, `artifact-retention-days`. Built
-artifacts are uploaded as `rpms-<image>` (and `srpms-<image>` for two-stage).
-
-### Composite action (single step)
-
-```yaml
-- uses: abn/rpmbuilder/.github/actions/build@main
-  with:
-    sources-dir: ${{ github.workspace }}/rpm
-    mode:        auto   # or: srpm-only | from-srpm
-```
-
-The action is a single container run. A **strict two-stage tito build**
-(generate the SRPM, then rebuild it in a clean environment with no tito) is
-just the action used twice — first `mode: srpm-only`, then `mode: from-srpm`
-against the first run's output:
-
-```yaml
-- uses: abn/rpmbuilder/.github/actions/build@main
-  with:
-    sources-dir: ${{ github.workspace }}        # tito project root
-    output-dir:  ${{ runner.temp }}/srpm
-    mode:        srpm-only
-- uses: abn/rpmbuilder/.github/actions/build@main
-  with:
-    sources-dir: ${{ runner.temp }}/srpm        # the SRPM from step 1
-    output-dir:  ${{ runner.temp }}/rpms
-    mode:        from-srpm
-```
-
-See the [`build` action README](.github/actions/build/README.md) for the
-full input/output reference, the `mode` table, and more examples. The action
-is exercised on every PR by
-[`.github/workflows/action-test.yml`](.github/workflows/action-test.yml),
-which builds the current image and validates the spec and two-stage
-(composed) tito paths against canonical fixtures.
-
-## Configuration
-
-The following configurations are available via environment variables
-
-| Variable      | Description |
-|:-------------|:------------|
-| SOURCES       | Configure source directory on the container file system |
-| OUTPUT        | Configure output directory on the container file system |
-| OUTPUT_USER   | User or UID that built RPMs and SRPMs are owned by in the output directory; set to your host `$UID` to avoid root-owned files, defaults to the container build user |
-| RPM_LINT      | If set, enables rpm linting once rpms are built |
-| ARCH          | Target architecture to build the rpm for, defaults to `x86_64` |
-| SRPM_ONLY     | If set, only builds and outputs the SRPM; skips binary RPM build |
-| FROM_SRPM     | If set, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds RPMs from them; use with the base image as stage 2 of the [two-stage tito workflow](#two-stage-tito-workflow-strict-dependency-isolation) |
-| COPR_REPOS    | Space- or comma-separated list of Fedora COPR repositories to enable dynamically |
-| REPOS         | Space- or comma-separated list of custom repository URLs to enable |
-| DEBUG / VERBOSE | If set, enables bash verbose trace (`set -x`) execution |
-
-## Volumes
-
-The following volumes can be mounted from the host.
-
-| Volume                                  | Description                                                      |
-|:----------------------------------------|:-----------------------------------------------------------------|
-| /sources                                | Source to build RPM from                                         |
-| /output                                 | Output directory where all built RPMs and SRPMs are extracted to |
-| /etc/pki/ca-trust/source/anchors        | (optional) Directory of `.crt` files to add to the CA trust store (RHEL/Fedora) |
-| /etc/pki/trust/anchors                  | (optional) Directory of `.crt` files to add to the CA trust store (openSUSE) |
-
-To inject corporate or self-signed CA certificates, mount a directory containing `.crt` files and the trust store will be updated automatically before any build steps run:
+### 6. Corporate & Self-Signed CA Certificates
+Mount a host directory containing `.crt` certificates. Certificates are added to the system trust store before downloading remote sources or installing packages:
 
 ```bash
 podman run --rm -it \
@@ -224,24 +115,107 @@ podman run --rm -it \
     -v ${OUTPUT_DIR}:/output:z \
     -v ${CERT_DIR}:/etc/pki/ca-trust/source/anchors:z \
     -e OUTPUT_USER=$UID \
-    quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+    quay.io/abn/rpmbuilder:fedora-latest
 ```
 
-## Building the image locally
-
-`make build` builds the image from the committed `Containerfile`. The
-container runtime is auto-detected — podman if present, otherwise docker —
-and can be forced with `CONTAINER_CLI`:
+### 7. Interactive Debugging Shell
+To inspect the environment or debug spec build failures interactively:
 
 ```bash
-# default: auto-detected runtime, Fedora base
-make build
-
-# a specific base image and tag
-BASE_IMAGE=rockylinux:9 TARGET_IMAGE=rpmbuilder:rocky-9 make build
-
-# force docker instead of the auto-detected podman
-CONTAINER_CLI=docker make build
+podman run --rm -it --entrypoint bash \
+    -v ${SOURCE_DIR}:/sources:z \
+    -v ${OUTPUT_DIR}:/output:z \
+    quay.io/abn/rpmbuilder:fedora-latest
 ```
 
-`make test` runs the BATS suite against the image (requires a prior `make build`).
+---
+
+## GitHub Actions & CI Integration
+
+rpmbuilder provides both a turnkey reusable workflow and a composite action. They are consumed by path reference (`abn/rpmbuilder/...@<ref>`).
+
+### Option A: Reusable Workflow (Turnkey Matrix Builds)
+Use [`.github/workflows/rpm-build.yml`](.github/workflows/rpm-build.yml) to build across a matrix of images and upload build artifacts automatically:
+
+```yaml
+jobs:
+  build-rpms:
+    uses: abn/rpmbuilder/.github/workflows/rpm-build.yml@main
+    with:
+      sources-path:   rpm
+      images:         '["fedora-latest", "fedora-rawhide", "rockylinux-9", "opensuse-leap-15.6"]'
+      copr-repos:     '@fedora-llvm-team/llvm-snapshots'
+      rpm-lint:       true
+      tito-two-stage: false   # set true for strict two-stage tito isolation
+```
+
+### Option B: Composite Action (Single Step)
+Use [`.github/actions/build`](.github/actions/build/README.md) for custom single-step pipelines:
+
+```yaml
+- name: Build RPMs
+  uses: abn/rpmbuilder/.github/actions/build@main
+  with:
+    image:       quay.io/abn/rpmbuilder:fedora-latest
+    sources-dir: ${{ github.workspace }}/rpm
+    mode:        auto   # or: srpm-only | from-srpm
+    copr-repos:  '@fedora-llvm-team/llvm-snapshots'
+    rpm-lint:    'true'
+```
+
+---
+
+## Configuration Reference
+
+### Environment Variables
+
+| Variable | Default | Description |
+|:---------|:--------|:------------|
+| `SOURCES` | `/sources` | Path to the directory containing `.spec` files and source archives |
+| `OUTPUT` | `/output` (or `${SOURCES}/.rpmbuild`) | Path where final built RPMs and SRPMs are placed |
+| `OUTPUT_USER` | Container `$USER` | UID or username applied to output files via `install` (set to host `$UID` to prevent root-owned files on volume mounts) |
+| `ARCH` | `x86_64` | Target RPM architecture (`x86_64`, `aarch64`, `noarch`, …) |
+| `RPM_LINT` | _unset_ | When defined, executes `rpmlint` on all generated binary RPMs |
+| `SRPM_ONLY` | _unset_ | When defined, stops after building SRPMs; skips binary RPM compilation |
+| `FROM_SRPM` | _unset_ | When defined, treats `SOURCES` as a directory of `.src.rpm` files and rebuilds binary RPMs |
+| `COPR_REPOS` | _unset_ | Space- or comma-separated list of Fedora COPR repositories to enable dynamically |
+| `REPOS` / `ADDITIONAL_REPOS` | _unset_ | Space- or comma-separated list of custom repository URLs to enable |
+| `DEBUG` / `VERBOSE` | _unset_ | When defined, enables shell execution tracing (`set -x`) |
+
+### Source Directory Configuration Files
+
+| Path | Purpose |
+|:-----|:--------|
+| `${SOURCES}/.copr` | Plain text list of COPR repositories to enable |
+| `${SOURCES}/.repos` | Plain text list of repository URLs to add |
+| `${SOURCES}/.repos/*.repo` | Drop-in `.repo` files copied directly into `/etc/yum.repos.d/` or `/etc/zypp/repos.d/` |
+
+### Container Volume Mounts
+
+| Container Path | Purpose |
+|:---------------|:--------|
+| `/sources` | Input directory with `.spec` files, source tarballs, or `.src.rpm` files |
+| `/output` | Destination directory where built RPMs and SRPMs are written |
+| `/etc/pki/ca-trust/source/anchors` | Directory of `.crt` certificates to inject into trust store (Red Hat / Fedora) |
+| `/etc/pki/trust/anchors` | Directory of `.crt` certificates to inject into trust store (openSUSE) |
+
+---
+
+## Building the Image Locally
+
+Build images directly using `make` (auto-detects `podman` or `docker`):
+
+```bash
+# Build default image (Fedora)
+make build
+
+# Build a specific distribution
+BASE_IMAGE=rockylinux:9 TARGET_IMAGE=rpmbuilder:rocky-9 make build
+BASE_IMAGE=opensuse/leap:15.6 TARGET_IMAGE=rpmbuilder:opensuse-leap-15.6 make build
+
+# Force docker instead of podman
+CONTAINER_CLI=docker make build
+
+# Run the BATS test suite
+TARGET_IMAGE=quay.io/abn/rpmbuilder:fedora-latest make test
+```
