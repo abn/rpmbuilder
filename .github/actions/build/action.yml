@@ -69,6 +69,20 @@ inputs:
     required: false
     default: ''
 
+  copr-repos:
+    description: >-
+      Space- or newline-delimited list of Fedora COPR repositories to enable
+      (e.g. 'user/project' or '@group/project').
+    required: false
+    default: ''
+
+  repos:
+    description: >-
+      Space- or newline-delimited list of custom repository URLs or .repo files
+      to enable before dependency resolution and building.
+    required: false
+    default: ''
+
 outputs:
   output-dir:
     description: Absolute path to the directory containing all built artifacts.
@@ -140,6 +154,8 @@ runs:
         MODE:           ${{ inputs.mode }}
         INPUT_RPM_LINT: ${{ inputs.rpm-lint }}
         CA_CERTS_DIR:   ${{ inputs.ca-certs-dir }}
+        COPR_REPOS:     ${{ inputs.copr-repos }}
+        REPOS:          ${{ inputs.repos }}
       run: |
         CONTAINER_ARGS=(
           --rm
@@ -150,6 +166,8 @@ runs:
         )
         [[ -n "${CA_CERTS_DIR}" ]] && \
           CONTAINER_ARGS+=(--volume "${CA_CERTS_DIR}:/etc/pki/ca-trust/source/anchors:z")
+        [[ -n "${COPR_REPOS}" ]] && CONTAINER_ARGS+=(--env COPR_REPOS="${COPR_REPOS}")
+        [[ -n "${REPOS}" ]] && CONTAINER_ARGS+=(--env REPOS="${REPOS}")
         [[ "${INPUT_RPM_LINT,,}" =~ ^(true|1|yes|y)$ ]] && CONTAINER_ARGS+=(--env RPM_LINT=1)
         case "${MODE}" in
           srpm-only)     CONTAINER_ARGS+=(--env SRPM_ONLY=1) ;;

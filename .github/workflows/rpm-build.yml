@@ -71,6 +71,20 @@ on:
         default: false
         type: boolean
 
+      copr-repos:
+        description: >-
+          Space- or newline-delimited list of Fedora COPR repositories to enable.
+        required: false
+        default: ''
+        type: string
+
+      repos:
+        description: >-
+          Space- or newline-delimited list of custom repository URLs or .repo files to enable.
+        required: false
+        default: ''
+        type: string
+
       upload-artifacts:
         description: >-
           Upload built RPMs (and SRPMs) as workflow artifacts after each build.
@@ -117,6 +131,8 @@ jobs:
           output-dir:  ${{ runner.temp }}/rpmbuild-output
           arch:        ${{ inputs.arch }}
           rpm-lint:    ${{ inputs.rpm-lint }}
+          copr-repos:  ${{ inputs.copr-repos }}
+          repos:       ${{ inputs.repos }}
           mode:        auto
 
       # Strict two-stage tito build = the action composed twice: generate the
@@ -130,6 +146,8 @@ jobs:
           sources-dir: ${{ github.workspace }}/${{ inputs.sources-path }}
           output-dir:  ${{ runner.temp }}/srpm
           arch:        ${{ inputs.arch }}
+          copr-repos:  ${{ inputs.copr-repos }}
+          repos:       ${{ inputs.repos }}
           mode:        srpm-only
 
       - name: Build RPMs (two-stage — 2/2 rebuild from SRPM)
@@ -141,6 +159,8 @@ jobs:
           output-dir:  ${{ runner.temp }}/rpmbuild-output
           arch:        ${{ inputs.arch }}
           rpm-lint:    ${{ inputs.rpm-lint }}
+          copr-repos:  ${{ inputs.copr-repos }}
+          repos:       ${{ inputs.repos }}
           mode:        from-srpm
 
       # ── artifact upload ─────────────────────────────────────────────────

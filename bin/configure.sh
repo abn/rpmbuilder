@@ -42,7 +42,7 @@ else
   ${PACKAGE_MANAGER} -y update
 
   if [[ "${PACKAGE_MANAGER}" == "dnf" ]]; then
-    ${PACKAGE_MANAGER} -y install "dnf-command(builddep)"
+    ${PACKAGE_MANAGER} -y install "dnf-command(builddep)" "dnf-command(copr)" dnf-plugins-core
   fi
 
   ${PACKAGE_MANAGER} -y install ca-certificates rpm-build rpmdevtools yum-utils rpmlint ${EXTRA_PACKAGES}

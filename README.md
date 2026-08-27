@@ -75,6 +75,24 @@ podman run --rm -it \
 
 The `FROM_SRPM=1` flag is required and intentional — it prevents the image from accidentally entering SRPM rebuild mode due to leftover `.src.rpm` files in the output directory.
 
+### Enabling COPR and Custom Repositories
+
+You can dynamically enable external Fedora COPR repositories or custom package repositories before dependencies are installed and builds begin:
+
+- **Via Environment Variables:**
+  ```bash
+  podman run --rm -it \
+      -v ${SOURCE_DIR}:/sources:z \
+      -v ${OUTPUT_DIR}:/output:z \
+      -e COPR_REPOS="@fedora-llvm-team/llvm-snapshots user/my-copr" \
+      -e REPOS="https://example.com/custom.repo" \
+      quay.io/abn/rpmbuilder:${BUILDER_VERSION}
+  ```
+- **Via Configuration Files:**
+  - `${SOURCES}/.copr`: Plain text file containing one COPR repository (`user/project` or `@group/project`) per line.
+  - `${SOURCES}/.repos`: Plain text file containing repository URLs (one per line).
+  - `${SOURCES}/.repos/*.repo`: Drop-in `.repo` files automatically copied to the system repository directory.
+
 ### Debugging
 
 If you are creating a spec file, it is often useful to have a clean room debugging environment. You can achieve this by

@@ -173,12 +173,106 @@ function build-from-tito() {
   done
 }
 
+function enable_repos() {
+  local SUDO_CMD=()
+  [[ $EUID -ne 0 ]] && SUDO_CMD+=(sudo)
+
+  # 1. Drop-in *.repo files from ${SOURCES}/.repos/
+  if compgen -G "${SOURCES}/.repos/*.repo" > /dev/null 2>&1; then
+    local repo_dest="/etc/yum.repos.d"
+    [[ -n "${ZYPPER}" ]] && repo_dest="/etc/zypp/repos.d"
+    "${SUDO_CMD[@]}" install -d "${repo_dest}"
+    for r in "${SOURCES}"/.repos/*.repo; do
+      "${SUDO_CMD[@]}" cp "$r" "${repo_dest}/"
+    done
+  fi
+
+  # 2. Custom repository URLs (from ADDITIONAL_REPOS / REPOS and ${SOURCES}/.repos / .repos.list)
+  local custom_repos=()
+  if [[ -n "${ADDITIONAL_REPOS:-}" ]]; then
+    read -r -a env_repos <<< "${ADDITIONAL_REPOS//,/ }"
+    custom_repos+=("${env_repos[@]}")
+  fi
+  if [[ -n "${REPOS:-}" ]]; then
+    read -r -a env_repos <<< "${REPOS//,/ }"
+    custom_repos+=("${env_repos[@]}")
+  fi
+  for rfile in "${SOURCES}/.repos" "${SOURCES}/.repos.list"; do
+    if [[ -f "$rfile" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"
+        line="${line// /}"
+        [[ -n "$line" ]] && custom_repos+=("$line")
+      done < "$rfile"
+    fi
+  done
+
+  if [[ ${#custom_repos[@]} -gt 0 ]]; then
+    local idx=1
+    for r in "${custom_repos[@]}"; do
+      if [[ -n "${ZYPPER}" ]]; then
+        "${SUDO_CMD[@]}" zypper --non-interactive addrepo --no-gpgcheck "$r" "custom_repo_${idx}" || true
+      elif [[ -n "${DNF}" ]]; then
+        if [[ "$r" == *.repo ]]; then
+          "${SUDO_CMD[@]}" dnf config-manager addrepo --from-repofile="$r" 2>/dev/null \
+            || "${SUDO_CMD[@]}" dnf config-manager --add-repo="$r" || true
+        else
+          "${SUDO_CMD[@]}" dnf config-manager addrepo "$r" 2>/dev/null \
+            || "${SUDO_CMD[@]}" dnf config-manager --add-repo="$r" || true
+        fi
+      else
+        "${SUDO_CMD[@]}" yum-config-manager --add-repo="$r" || true
+      fi
+      ((idx++))
+    done
+  fi
+
+  # 3. COPR repositories (from COPR_REPOS and ${SOURCES}/.copr / .copr-repos)
+  local copr_list=()
+  if [[ -n "${COPR_REPOS:-}" ]]; then
+    read -r -a env_copr <<< "${COPR_REPOS//,/ }"
+    copr_list+=("${env_copr[@]}")
+  fi
+  for cfile in "${SOURCES}/.copr" "${SOURCES}/.copr-repos"; do
+    if [[ -f "$cfile" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"
+        line="${line// /}"
+        [[ -n "$line" ]] && copr_list+=("$line")
+      done < "$cfile"
+    fi
+  done
+
+  if [[ ${#copr_list[@]} -gt 0 ]]; then
+    for copr_repo in "${copr_list[@]}"; do
+      read -r -a copr_args <<< "${copr_repo}"
+      if [[ -n "${ZYPPER}" ]]; then
+        local distro_ver="opensuse-tumbleweed"
+        if grep -q "Leap" /etc/os-release 2>/dev/null; then
+          local ver_id
+          ver_id=$(grep -E '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+          distro_ver="opensuse-leap-${ver_id}"
+        fi
+        local copr_target="${copr_args[0]}"
+        local copr_url="https://copr.fedorainfracloud.org/coprs/${copr_target}/repo/${distro_ver}/${copr_target//\//-}-${distro_ver}.repo"
+        "${SUDO_CMD[@]}" zypper --non-interactive addrepo --no-gpgcheck "${copr_url}" || true
+      elif [[ -n "${DNF}" ]]; then
+        "${SUDO_CMD[@]}" dnf copr enable -y "${copr_args[@]}"
+      else
+        "${SUDO_CMD[@]}" yum copr enable -y "${copr_args[@]}"
+      fi
+    done
+  fi
+}
+
 # copy non-spec source files, excluding output dirs, hidden files, and spec files
 for src in "${SOURCES}"/*; do
   [[ ! -e "$src" ]] && continue
   [[ "$src" == *.spec ]] && continue
   [[ "$src" == "${OUTPUT}" ]] && continue
   [[ "$(basename "$src")" == .rpmbuild ]] && continue
+  [[ "$(basename "$src")" == .copr* ]] && continue
+  [[ "$(basename "$src")" == .repos* ]] && continue
   cp -R -t "${RPM_BUILD_SOURCES}" "$src"
 done
 
@@ -186,6 +280,9 @@ done
 chown -R "${USER}:${USER}" "${RPM_BUILD_SOURCES}"
 
 specFiles=("${SOURCES}"/*.spec)
+
+# enable any dynamic or configured repositories
+enable_repos
 
 # install build requires and fetch sources for all spec files
 for specFile in "${specFiles[@]}"; do
