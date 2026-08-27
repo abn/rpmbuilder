@@ -28,14 +28,6 @@ if [[ "${PACKAGE_MANAGER}" == "zypper" ]]; then
     ln -s "$(command -v rpmdev-spectool)" /usr/bin/spectool
   fi
 else
-  if [[ "${SYSTEM_CPE}" == *":centos:8" ]]; then
-    # convert to centos stream for
-    ${PACKAGE_MANAGER} -y \
-      --disablerepo '*' \
-      --enablerepo=extras swap centos-linux-repos centos-stream-repos
-    ${PACKAGE_MANAGER} -y distrosync
-  fi
-
   if [[ "${SYSTEM_CPE}" == *":rocky:"* ]] || [[ "${SYSTEM_CPE}" == *":centos:"* ]]; then
     ${PACKAGE_MANAGER} -y install "epel-release"
   fi

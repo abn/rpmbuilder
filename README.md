@@ -49,7 +49,7 @@ podman run --rm -it \
     quay.io/abn/rpmbuilder:${BUILDER_VERSION}
 ```
 
-> **Note:** tito is available via EPEL on Fedora and EL 8/9 but is not yet available on EL 10 (e.g. Rocky Linux 10).
+> **Note:** tito is available via EPEL on Fedora and EL 9 but is not yet available on EL 10 (e.g. Rocky Linux 10).
 
 #### Two-stage tito workflow (strict dependency isolation)
 

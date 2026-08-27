@@ -40,7 +40,7 @@ on:
           JSON array of rpmbuilder image tag suffixes to build against.
           Each suffix is resolved to quay.io/abn/rpmbuilder:<suffix>.
           Available tags: https://quay.io/repository/abn/rpmbuilder?tab=tags
-          Example: '["fedora-44","fedora-rawhide","rockylinux-8","rockylinux-9"]'
+          Example: '["fedora-44","fedora-rawhide","rockylinux-9","rockylinux-10"]'
         required: false
         default: '["fedora-latest","rockylinux-9"]'
         type: string
