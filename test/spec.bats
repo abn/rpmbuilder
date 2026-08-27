@@ -7,7 +7,7 @@ load helpers
   local spec_commands='curl --silent --output "${SOURCES}/hello.spec" https://raw.githubusercontent.com/abn/hello-rpm/master/hello.spec
 /usr/bin/rpmbuilder
 [ "$(ls -A ${OUTPUT})" ]
-${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
+${PKG_INSTALL} ${OUTPUT}/!(*.src).rpm'
 
   run rpmbuilder_run -e OUTPUT_USER=1500 <<< "$(container_script "${CONTAINER_PREAMBLE}" "${spec_commands}")"
   [ "$status" -eq 0 ]

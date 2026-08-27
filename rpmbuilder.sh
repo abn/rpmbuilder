@@ -21,30 +21,58 @@ install \
   "${SOURCES}" "${OUTPUT}" \
   "${RPM_BUILD_SOURCES}" "${RPM_BUILD_RPMS}" "${RPM_BUILD_SRPMS}"
 
-{ command -v dnf > /dev/null 2>&1 && DNF=1; } || :
-
-CA_ANCHORS_DIR="/etc/pki/ca-trust/source/anchors"
-if compgen -G "${CA_ANCHORS_DIR}/*" > /dev/null 2>&1; then
-  UPDATE_CA_CMD=()
-  [[ $EUID -ne 0 ]] && UPDATE_CA_CMD+=(sudo)
-  UPDATE_CA_CMD+=(update-ca-trust extract)
-  "${UPDATE_CA_CMD[@]}"
+if command -v dnf > /dev/null 2>&1; then
+  DNF=1
+elif command -v zypper > /dev/null 2>&1; then
+  ZYPPER=1
 fi
 
-# prepare builddep-command
-BUILDDEP_CMD=()
-if [[ $EUID -ne 0 ]]; then
-  BUILDDEP_CMD+=(sudo)
-fi
+CA_ANCHORS_DIRS=("/etc/pki/ca-trust/source/anchors" "/etc/pki/trust/anchors")
+for dir in "${CA_ANCHORS_DIRS[@]}"; do
+  if compgen -G "${dir}/*" > /dev/null 2>&1; then
+    UPDATE_CA_CMD=()
+    [[ $EUID -ne 0 ]] && UPDATE_CA_CMD+=(sudo)
+    if command -v update-ca-trust > /dev/null 2>&1; then
+      UPDATE_CA_CMD+=(update-ca-trust extract)
+    elif command -v update-ca-certificates > /dev/null 2>&1; then
+      UPDATE_CA_CMD+=(update-ca-certificates)
+    fi
+    if [[ ${#UPDATE_CA_CMD[@]} -gt 0 ]]; then
+      "${UPDATE_CA_CMD[@]}"
+    fi
+    break
+  fi
+done
 
+function install-builddep() {
+  local targetFile=$1
+  local SUDO_CMD=()
+  [[ $EUID -ne 0 ]] && SUDO_CMD+=(sudo)
 
-{ [[ -n "${DNF}" ]] && BUILDDEP_CMD+=(dnf builddep); } \
-  || BUILDDEP_CMD+=(yum-builddep)
-
-if [[ -n "${ARCH}" ]] && [[ "${ARCH}" != "noarch" ]]; then
-  { [[ -n "${DNF}" ]] && BUILDDEP_CMD+=(--forcearch "${ARCH}"); } \
-    ||  BUILDDEP_CMD+=(--target "${ARCH}")
-fi
+  if [[ -n "${ZYPPER}" ]]; then
+    local deps=()
+    if [[ "$targetFile" == *.src.rpm ]]; then
+      mapfile -t deps < <(rpm -qp --requires "$targetFile" 2>/dev/null | grep -v '^rpmlib(' || true)
+    else
+      mapfile -t deps < <(rpmspec -q --buildrequires "$targetFile" 2>/dev/null | grep -v '^rpmlib(' || true)
+    fi
+    if [[ ${#deps[@]} -gt 0 ]]; then
+      "${SUDO_CMD[@]}" zypper --non-interactive install --no-recommends "${deps[@]}"
+    fi
+  elif [[ -n "${DNF}" ]]; then
+    local arch_args=()
+    if [[ -n "${ARCH}" ]] && [[ "${ARCH}" != "noarch" ]]; then
+      arch_args+=(--forcearch "${ARCH}")
+    fi
+    "${SUDO_CMD[@]}" dnf builddep "${arch_args[@]}" -y "$targetFile"
+  else
+    local arch_args=()
+    if [[ -n "${ARCH}" ]] && [[ "${ARCH}" != "noarch" ]]; then
+      arch_args+=(--target "${ARCH}")
+    fi
+    "${SUDO_CMD[@]}" yum-builddep "${arch_args[@]}" -y "$targetFile"
+  fi
+}
 
 function build-from-spec() {
   local specFile=$1
@@ -87,7 +115,7 @@ function rebuild-from-srpm() {
   fi
 
   for srpm in "${srpmFiles[@]}"; do
-    "${BUILDDEP_CMD[@]}" -y "$srpm"
+    install-builddep "$srpm"
     rpmbuild --rebuild --target "${ARCH}" "$srpm"
 
     local prefix
@@ -113,7 +141,12 @@ function build-from-tito() {
       SUDO_CMD+=(sudo)
     fi
 
-    if { [[ -n "${DNF}" ]] && "${SUDO_CMD[@]}" dnf install -y tito; } \
+    if [[ -n "${ZYPPER}" ]]; then
+      if ! "${SUDO_CMD[@]}" zypper --non-interactive install --no-recommends tito; then
+        "${SUDO_CMD[@]}" zypper --non-interactive install --no-recommends python3 python3-pip python3-setuptools python3-curses
+        python3 -m pip install tito
+      fi
+    elif { [[ -n "${DNF}" ]] && "${SUDO_CMD[@]}" dnf install -y tito; } \
         || "${SUDO_CMD[@]}" yum install -y tito; then
       :
     else
@@ -159,8 +192,9 @@ chown -R "${USER}:${USER}" "${RPM_BUILD_SOURCES}"
 
 # install build requires and fetch sources for all spec files
 for specFile in "${specFiles[@]}"; do
-  "${BUILDDEP_CMD[@]}" -y "$specFile"
-  spectool --sourcedir --get-files "$specFile"
+  install-builddep "$specFile"
+  SPECTOOL_CMD=$(command -v spectool || command -v rpmdev-spectool)
+  "${SPECTOOL_CMD}" --sourcedir --get-files "$specFile"
 done
 
 if [[ -n "${FROM_SRPM}" ]]; then

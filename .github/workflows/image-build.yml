@@ -29,6 +29,15 @@ jobs:
             version: 9
           - distro: rockylinux
             version: 10
+          - distro: opensuse-leap
+            version: 15.6
+            base_image: opensuse/leap:15.6
+          - distro: opensuse-leap
+            version: latest
+            base_image: opensuse/leap:latest
+          - distro: opensuse-tumbleweed
+            version: latest
+            base_image: opensuse/tumbleweed:latest
     steps:
       - uses: actions/checkout@v5
       - name: Resolve container runtime
@@ -38,7 +47,7 @@ jobs:
           echo "::notice::Using ${CLI} ($(${CLI} --version))"
       - name: Build Image
         env:
-          BASE_IMAGE: quay.io/${{ matrix.distro }}/${{ matrix.distro }}:${{ matrix.version }}
+          BASE_IMAGE: ${{ matrix.base_image || format('quay.io/{0}/{0}:{1}', matrix.distro, matrix.version) }}
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}
         run: make build
       - name: Setup Bats

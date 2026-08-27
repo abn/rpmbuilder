@@ -5,7 +5,7 @@ load helpers
 # Shared tito setup: install git, clone test repo, invoke rpmbuilder.
 # Single-quoted to preserve literal $ for container-side shell expansion.
 # shellcheck disable=SC2016
-TITO_CLONE_BUILD='${PKG_MGR} -y install git
+TITO_CLONE_BUILD='${PKG_INSTALL} git
 git clone https://github.com/abn/hello-rpm-tito.git "${SOURCES}"
 /usr/bin/rpmbuilder'
 
@@ -24,7 +24,7 @@ setup_file() {
 @test "one-stage tito build produces installable RPMs" {
   # shellcheck disable=SC2016
   local assert_rpms='[ "$(ls -A ${OUTPUT})" ]
-${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
+${PKG_INSTALL} ${OUTPUT}/!(*.src).rpm'
 
   run rpmbuilder_run -e OUTPUT_USER=1500 \
     <<< "$(container_script "${CONTAINER_PREAMBLE}" "${TITO_CLONE_BUILD}" "${assert_rpms}")"
@@ -46,7 +46,7 @@ ${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
   # shellcheck disable=SC2016
   local rebuild_commands='/usr/bin/rpmbuilder
 [ "$(ls -A ${OUTPUT})" ]
-${PKG_MGR} -y install ${OUTPUT}/!(*.src).rpm'
+${PKG_INSTALL} ${OUTPUT}/!(*.src).rpm'
 
   run rpmbuilder_run \
     -v "${SRPM_DIR}":/sources:z \
