@@ -73,7 +73,7 @@ jobs:
             version: latest
             base_image: opensuse/tumbleweed:latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Build Image
         env:
           CONTAINER_CLI: podman
@@ -95,7 +95,7 @@ jobs:
         run: make test
       - name: Publish Arch Image (quay.io)
         if: github.ref == 'refs/heads/main'
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@v3
         with:
           image: rpmbuilder
           tags: ${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
