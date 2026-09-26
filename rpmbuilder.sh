@@ -120,14 +120,20 @@ function rebuild-from-srpm() {
 
   for srpm in "${srpmFiles[@]}"; do
     install-builddep "$srpm"
-    rpmbuild --rebuild --target "${ARCH}" "$srpm"
+    local rpmLog
+    rpmLog=$(mktemp)
+    rpmbuild --rebuild --target "${ARCH}" "$srpm" 2>&1 | tee "${rpmLog}"
 
-    local prefix
-    prefix=$(rpm -qp --queryformat '%{name}-%{version}-%{release}' "$srpm")
+    # publish exactly what this rebuild produced, plus the input srpm
+    [[ -f "${OUTPUT}/$(basename "$srpm")" ]] || publish_artifact "$srpm"
 
-    for rpm in "${RPM_BUILD_SRPMS}/${prefix}"*.rpm "${RPM_BUILD_RPMS}"/**/"${prefix}"*.rpm; do
+    local built
+    mapfile -t built < <(awk '/^Wrote: / {print $2}' "${rpmLog}")
+    for rpm in "${built[@]}"; do
       [[ -f "$rpm" ]] && publish_artifact "$rpm"
     done
+
+    rm -f "${rpmLog}"
   done
 }
 
