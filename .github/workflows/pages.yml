@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - id: deploy
-        uses: abn/okf-wiki/action@v1
+        uses: abn/okf-wiki/action@main
         with:
           content: docs
           deploy: true
