@@ -1,0 +1,79 @@
+# Validate the OKF docs bundle, then render and publish it to GitHub Pages.
+#
+# `base` is left on auto: it reads the repository name, so this project site renders
+# under /rpmbuilder and the action deploys its own `site-dir` output. Pages must be
+# set to build from a workflow (Settings, Pages, Source: GitHub Actions), otherwise
+# the deploy step fails with a 404.
+name: Publish docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  # Pull requests run the validation job only: it reads the repository and needs no
+  # write permission, so a non-conformant bundle is caught before it merges.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch: {}
+
+# One Pages deployment at a time, and never cancel one in flight: a cancelled
+# deploy can leave the site mid-swap.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate the bundle
+    runs-on: ubuntu-24.04
+    # Validation only reads the repository.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+
+      # GOTOOLCHAIN=auto so the install works even when the pinned Go is older
+      # than okf requires. `okf validate` exits 1 on any error, 0 on warnings only.
+      - name: Validate OKF v0.2
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" GOTOOLCHAIN=auto \
+            go install github.com/okfcli/okf/cmd/okf@latest
+          "$RUNNER_TEMP/bin/okf" validate docs/
+
+  publish:
+    name: Render and deploy
+    needs: validate
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-24.04
+    # Only the deploy needs more than read access to the repository.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.deploy-url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: deploy
+        uses: abn/okf-wiki/action@v1
+        with:
+          content: docs
+          deploy: true
+          brand: abn.
+          brand-sub: rpmbuilder
+          title: rpmbuilder Docs
+          # Section order; unlisted directories are appended alphabetically.
+          sections: 'usage:Usage,reference:Reference,project:Project'
+          # Header links. An http or https target opens in a new tab; anything
+          # else resolves as a bundle path.
+          nav-links: 'GitHub=https://github.com/${{ github.repository }}'
