@@ -2,8 +2,34 @@
 
 [![](https://github.com/abn/rpmbuilder/workflows/Image%20Build/badge.svg)](https://github.com/abn/rpmbuilder/actions?query=workflow%3A%22Image+Build%22)
 [![Quay Container](https://quay.io/repository/abn/rpmbuilder/status "Quay Container")](https://quay.io/repository/abn/rpmbuilder)
+[![](https://img.shields.io/badge/docs-abn.github.io%2Frpmbuilder-blue)](https://abn.github.io/rpmbuilder/)
 
 Clean, containerized RPM and SRPM build environments for Red Hat and openSUSE distributions. Builds spec files, fetches remote sources via spectool, auto-resolves package build dependencies, and supports tito release workflows.
+
+---
+
+## Documentation
+
+The full guides live in the [documentation wiki](https://abn.github.io/rpmbuilder/), built from the
+[`docs/`](docs/index.md) OKF bundle in this repository. The recipes below are the short form.
+
+| Guide | Covers |
+|:------|:-------|
+| [Quickstart](https://abn.github.io/rpmbuilder/usage/quickstart.html) | First build: the mounts, `OUTPUT_USER`, and where the artifacts land |
+| [Building from a spec file](https://abn.github.io/rpmbuilder/usage/spec-builds.html) | The default path: `BuildRequires`, remote sources, subpackages |
+| [Building a tito project](https://abn.github.io/rpmbuilder/usage/tito-builds.html) | tito auto-detection, and the strict two-stage isolation build |
+| [Rebuilding from an SRPM](https://abn.github.io/rpmbuilder/usage/rebuild-from-srpm.html) | `FROM_SRPM`, without the original sources or spec tree |
+| [Testing with coprctl](https://abn.github.io/rpmbuilder/usage/coprctl.html) | Preflight a spec locally with the same image before publishing to Copr |
+| [GitHub Actions integration](https://abn.github.io/rpmbuilder/usage/github-actions.html) | The reusable workflow and the composite action |
+| [Reference](https://abn.github.io/rpmbuilder/reference/environment-variables.html) | Environment variables, config files, image tags, container layout |
+
+To preview the bundle locally, or to check a change the same way CI does:
+
+```bash
+okf validate docs/                                          # the gate, exits 1 on any error
+podman run --rm --network=host -v "$(pwd)/docs:/content:ro,Z" \
+  ghcr.io/abn/okf-wiki:latest                               # serves http://127.0.0.1:8080/wiki/
+```
 
 ---
 
