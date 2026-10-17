@@ -74,6 +74,6 @@ jobs:
           title: rpmbuilder Docs
           # Section order; unlisted directories are appended alphabetically.
           sections: 'usage:Usage,reference:Reference,project:Project'
-          # Header links. An http or https target opens in a new tab; anything
-          # else resolves as a bundle path.
-          nav-links: 'GitHub=https://github.com/${{ github.repository }}'
+          # Header links, in display order. An http or https target opens in a
+          # new tab; anything else resolves as a bundle path.
+          nav-links: 'abn.is=https://abn.is/,GitHub=https://github.com/${{ github.repository }}'
