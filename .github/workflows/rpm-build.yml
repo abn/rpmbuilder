@@ -119,7 +119,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Default: one pass, action auto-detects spec vs tito (SRPM + RPM).
       - name: Build RPMs
@@ -166,7 +166,7 @@ jobs:
       # ── artifact upload ─────────────────────────────────────────────────
       - name: Upload RPM artifacts
         if: ${{ inputs.upload-artifacts }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # Name includes the image tag so concurrent matrix jobs stay separate.
           name: rpms-${{ matrix.image }}
@@ -179,7 +179,7 @@ jobs:
       # downloading the full binary RPM artifact.
       - name: Upload intermediate SRPMs (two-stage only)
         if: ${{ inputs.tito-two-stage && inputs.upload-artifacts }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: srpms-${{ matrix.image }}
           path: ${{ runner.temp }}/srpm/**/*.src.rpm
