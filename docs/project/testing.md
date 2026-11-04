@@ -20,6 +20,10 @@ Two public repositories supply the inputs, so the tests need network access:
 | `abn/hello-rpm` | a single `.spec` file with a remote `Source0` | `test/spec.bats` |
 | `abn/hello-rpm-tito` | a tito project with a `.tito` directory | `test/tito.bats` |
 
+The SRPM tests use local fixtures under `test/` (`multi.spec`, `inject.spec`, `debug.spec`,
+`outside.spec`) and build them into SRPMs inside the container, so they do not depend on a remote
+repository.
+
 The spec test writes the fixture spec into `SOURCES` and runs `/usr/bin/rpmbuilder` inside the
 container, then asserts that the output directory holds a binary RPM. The tito tests clone the tito
 fixture and assert the same, plus the two-stage pair.

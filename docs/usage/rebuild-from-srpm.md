@@ -35,19 +35,20 @@ directory happens to be present.
    `dnf` system and by reading `rpm -qp --requires` on a `zypper` system. The requirements come from
    the source package's own metadata, since an SRPM has no spec on disk to query directly.
 3. Rebuilds with `rpmbuild --rebuild --target "$ARCH"`.
-4. Derives the source package's `name-version-release` with
-   `rpm -qp --queryformat '%{name}-%{version}-%{release}'`.
-5. Publishes every `.rpm` in the source RPM and binary RPM build trees whose filename begins with
-   that prefix.
+4. Captures rpmbuild's output and publishes the packages it reports on its `Wrote:` lines. A path
+   must be a regular `.rpm` that resolves inside the configured source RPM and binary RPM build
+   trees; paths printed by a build script, including `..` and symlink tricks, are ignored. If no
+   package is publishable, the run fails instead of publishing only the SRPM.
+5. Copies the input `.src.rpm` to the output directory too, unless that file is already there.
 
 A single run handles a directory of several `.src.rpm` files.
 
 > [!NOTE]
-> The prefix is the source package's own `name-version-release`, so it matches the main binary
-> package. A subpackage whose filename inserts a segment, such as `demo-libs-1.0-1` against
-> `demo-1.0-1`, does not begin with that prefix and is not copied to the output directory. The spec
-> path publishes subpackages because it asks the spec for its full prefix list, and the tito path
-> publishes every RPM tito produced.
+> Publishing rpmbuild's own report covers every package the rebuild produced, including subpackages
+> whose name or `Version`/`Release` differs from the source package, and debuginfo/debugsource
+> packages generated automatically during the build. The path check is a sanity check against
+> accidental log confusion, not a sandbox: a spec runs arbitrary code as root and can write to
+> `/output` directly.
 
 ## Relation to the original build
 
@@ -61,7 +62,11 @@ input.
 | Message | Cause |
 |---|---|
 | `FROM_SRPM is set but no .src.rpm files found` | the sources mount points at a directory without source packages |
-| an `rpmbuild --rebuild` error | the SRPM is malformed, or its spec needs a macro or a build dependency that is not installed |
+| `rpmbuild failed for ...` | the SRPM is malformed, or its spec needs a macro or a build dependency that is not installed |
+| `rpmbuild reported no packages` | the rebuild succeeded but no `Wrote:` line could be parsed, so nothing would have been published |
+| `rpmbuild produced no publishable packages` | every reported path was rejected (not a `.rpm`, outside the build trees, a symlink, or missing) |
+| `rpmbuild reported a missing file: ...` | rpmbuild named a path that does not exist; that path is skipped |
+| `ignoring unexpected 'Wrote:' path: ...` | a path is not a `.rpm`, or resolves outside the build trees, or is a symlink; it is not published |
 
 ## Next
 
