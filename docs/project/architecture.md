@@ -70,10 +70,13 @@ invocation reproducible.
 the slow compile starts, and it produces the artifact a
 [strict two-stage build](../usage/two-stage-tito.md) needs.
 
-**Publish by package prefix.** A spec can define several packages from one build. On the spec path
-the entrypoint asks `rpm --specfile` for the full `name-version-release` list and matches every
-prefix against the built files, so each subpackage is published with the main package. The rebuild
-path has no spec on disk and derives a single prefix from the SRPM itself.
+**Publish by package prefix, or by rpmbuild's own report.** A spec can define several packages from
+one build. On the spec path the entrypoint asks `rpm --specfile` for the full
+`name-version-release` list and matches every prefix against the built files, so each subpackage is
+published with the main package. The rebuild path has no spec on disk, so it publishes the regular
+`.rpm` files `rpmbuild` reports on its `Wrote:` lines, resolving each path and requiring it to sit
+inside the configured build trees. That covers subpackages with their own version and the
+automatically generated debuginfo and debugsource packages too.
 
 **Tito provisioned at runtime.** Tito is not available as a package on every supported distribution,
 so the entrypoint installs it when the image does not carry it, with a `pip` fallback. The cost is
