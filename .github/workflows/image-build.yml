@@ -37,6 +37,12 @@ jobs:
             distro: fedora
             version: rawhide
           - arch: amd64
+            distro: fedora
+            version: 45
+          - arch: arm64
+            distro: fedora
+            version: 45
+          - arch: amd64
             distro: rockylinux
             version: 9
           - arch: arm64
@@ -120,6 +126,8 @@ jobs:
             version: 44
           - distro: fedora
             version: rawhide
+          - distro: fedora
+            version: 45
           - distro: rockylinux
             version: 9
           - distro: rockylinux
