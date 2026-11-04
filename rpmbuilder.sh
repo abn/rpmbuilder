@@ -118,22 +118,71 @@ function rebuild-from-srpm() {
     exit 1
   fi
 
+  local workDir
+  workDir=$(mktemp -d)
+  # bake the path into the trap: RETURN covers a normal function return, EXIT
+  # covers a command failing under set -e before the function returns
+  # shellcheck disable=SC2064
+  trap "rm -rf -- $(printf '%q' "${workDir}")" EXIT RETURN
+
+  local rpmsDir srpmsDir
+  rpmsDir=$(realpath -m -- "${RPM_BUILD_RPMS}")
+  srpmsDir=$(realpath -m -- "${RPM_BUILD_SRPMS}")
+
+  local srpm rpmLog
   for srpm in "${srpmFiles[@]}"; do
     install-builddep "$srpm"
-    local rpmLog
-    rpmLog=$(mktemp)
-    rpmbuild --rebuild --target "${ARCH}" "$srpm" 2>&1 | tee "${rpmLog}"
-
-    # publish exactly what this rebuild produced, plus the input srpm
-    [[ -f "${OUTPUT}/$(basename "$srpm")" ]] || publish_artifact "$srpm"
+    rpmLog=$(mktemp "${workDir}/rpmbuild.XXXXXX")
+    if ! rpmbuild --rebuild --target "${ARCH}" "$srpm" 2>&1 | tee "${rpmLog}"; then
+      echo "rpmbuild failed for ${srpm}" >&2
+      return 1
+    fi
 
     local built
     mapfile -t built < <(awk '/^Wrote: / {print $2}' "${rpmLog}")
+
+    # a successful rebuild reports at least one package; an empty list means
+    # the output could not be parsed, which must not pass as a clean run
+    if [[ ${#built[@]} -eq 0 ]]; then
+      echo "rpmbuild reported no packages for ${srpm}" >&2
+      return 1
+    fi
+
+    local rpm resolved published=0
     for rpm in "${built[@]}"; do
-      [[ -f "$rpm" ]] && publish_artifact "$rpm"
+      [[ -n "$rpm" ]] || continue
+      if [[ "${rpm}" != *.rpm ]]; then
+        echo "ignoring unexpected 'Wrote:' path: ${rpm}" >&2
+        continue
+      fi
+      # build-script output shares the log with rpmbuild's own messages. Only
+      # publish regular files that resolve inside the build trees, so a spec
+      # printing "Wrote: /etc/passwd" or a path with ".."/symlinks cannot
+      # publish an unrelated file.
+      resolved=$(realpath -m -- "${rpm}" 2>/dev/null) || resolved=""
+      if [[ -z "${resolved}" ]] \
+        || { [[ "${resolved}" != "${rpmsDir%/}"/* ]] && [[ "${resolved}" != "${srpmsDir%/}"/* ]]; } \
+        || [[ -L "${rpm}" ]]; then
+        echo "ignoring unexpected 'Wrote:' path: ${rpm}" >&2
+        continue
+      fi
+      if [[ ! -f "$rpm" ]]; then
+        echo "rpmbuild reported a missing file: ${rpm}" >&2
+        continue
+      fi
+      publish_artifact "$rpm"
+      ((++published))
     done
 
-    rm -f "${rpmLog}"
+    # counting publishes, not parsed lines, catches a build that reported only
+    # paths the guard rejected
+    if (( published == 0 )); then
+      echo "rpmbuild produced no publishable packages for ${srpm}" >&2
+      return 1
+    fi
+
+    # publish the input srpm too, unless it is already in the output directory
+    [[ -f "${OUTPUT}/$(basename "$srpm")" ]] || publish_artifact "$srpm"
   done
 }
 
