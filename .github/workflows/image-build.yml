@@ -87,7 +87,7 @@ jobs:
           TARGET_IMAGE: rpmbuilder:${{ matrix.distro }}-${{ matrix.version }}-${{ matrix.arch }}
         run: make build
       - name: Setup Bats
-        uses: bats-core/bats-action@4.0.0
+        uses: bats-core/bats-action@4.1.0
         with:
           support-install: false
           assert-install: false
